@@ -1,0 +1,25 @@
+{
+  "page": {"updated_at": "2026-08-09T13:58:00Z"},
+  "components": [
+    {"id":"child","name":"Git Operations","status":"partial_outage","position":2,"description":"Git traffic","showcase":true,"group":false,"group_id":"group"},
+    {"id":"hidden","name":"Hidden","status":"major_outage","position":1,"showcase":false,"group":false,"group_id":null},
+    {"id":"group","name":"Core services","status":"operational","position":1,"showcase":true,"group":true,"group_id":null},
+    {"id":"missing","name":"API Requests","status":"operational","position":3,"group":false,"group_id":null}
+  ],
+  "incidents": [
+    {
+      "id":"incident","name":"Incident with Git Operations","status":"monitoring","impact":"minor","updated_at":"2026-08-09T13:55:00Z",
+      "incident_updates":[
+        {"status":"monitoring","body":"Recovery   is\nbeing monitored.","updated_at":"2026-08-09T13:55:00Z"},
+        {"status":"investigating","body":"Older update","updated_at":"2026-08-09T13:20:00Z"}
+      ]
+    },
+    {"id":"empty","name":"No updates","status":"investigating","impact":"minor","updated_at":"2026-08-09T13:50:00Z","incident_updates":[]}
+  ],
+  "scheduled_maintenances": [
+    {"id":"later","name":"Later maintenance","status":"in_progress","impact":"maintenance","scheduled_for":"2026-08-09T14:00:00Z","scheduled_until":null,"updated_at":"2026-08-09T13:05:00Z"},
+    {"id":"active","name":"Database maintenance","status":"in_progress","impact":"maintenance","scheduled_for":"2026-08-09T13:00:00Z","scheduled_until":"2026-08-09T15:00:00Z","updated_at":"2026-08-09T13:05:00Z"},
+    {"id":"future","name":"Future maintenance","status":"scheduled","impact":"maintenance","scheduled_for":"2026-08-10T13:00:00Z","scheduled_until":"2026-08-10T15:00:00Z","updated_at":"2026-08-09T13:05:00Z"}
+  ],
+  "status": {"indicator":"none","description":"All Systems Operational"}
+}

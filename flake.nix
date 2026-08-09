@@ -1,0 +1,85 @@
+{
+  description = "Terminal-native GitHub service health dashboard";
+
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+  outputs =
+    { nixpkgs, ... }:
+    let
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "aarch64-darwin"
+      ];
+      forAllSystems = nixpkgs.lib.genAttrs systems;
+    in
+    {
+      packages = forAllSystems (
+        system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+        in
+        rec {
+          gh-pulse = pkgs.buildGoModule (finalAttrs: {
+            pname = "gh-pulse";
+            version = "0.1.0";
+
+            src = pkgs.lib.fileset.toSource {
+              root = ./.;
+              fileset = pkgs.lib.fileset.unions [
+                ./cmd
+                ./internal
+                ./go.mod
+                ./go.sum
+              ];
+            };
+            vendorHash = "sha256-A2RV8e62VAaSFgxIzLhKXWcv785tvJiNRJ2wUal6n/I=";
+            subPackages = [ "cmd/gh-pulse" ];
+
+            ldflags = [
+              "-s"
+              "-w"
+              "-X main.version=${finalAttrs.version}"
+            ];
+
+            meta = {
+              description = "Terminal-native GitHub service health and uptime dashboard";
+              homepage = "https://github.com/cpcloud/gh-pulse";
+              mainProgram = "gh-pulse";
+            };
+          });
+
+          default = gh-pulse;
+        }
+      );
+
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+        in
+        {
+          default = pkgs.mkShellNoCC {
+            packages = [
+              pkgs.actionlint
+              pkgs.go
+              pkgs.golangci-lint
+              pkgs.gopls
+              pkgs.gotools
+              pkgs.markdownlint-cli2
+              pkgs.nixfmt
+              pkgs.prek
+            ];
+          };
+        }
+      );
+
+      formatter = forAllSystems (
+        system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+        in
+        pkgs.nixfmt
+      );
+    };
+}

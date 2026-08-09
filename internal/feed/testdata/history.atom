@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <updated>2026-08-09T13:55:00Z</updated>
+  <entry>
+    <id>tag:www.githubstatus.com,2005:Incident/1</id>
+    <title>Older incident</title>
+    <published>2026-08-08T10:00:00Z</published>
+    <updated>2026-08-08T11:00:00Z</updated>
+  </entry>
+  <entry>
+    <id>tag:www.githubstatus.com,2005:Incident/2</id>
+    <title>New incident</title>
+    <link rel="alternate" href="https://www.githubstatus.com/incidents/new" />
+    <published>2026-08-09T13:00:00Z</published>
+    <updated>2026-08-09T13:55:00Z</updated>
+    <content type="html">&lt;p&gt;Unstructured status HTML&lt;/p&gt;</content>
+  </entry>
+</feed>
