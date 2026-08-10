@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">GitHub Pulse</title>
+  <desc id="desc">A minimal status pulse rising once and falling once, transitioning from green through yellow and red back to green.</desc>
+
+  <defs>
+    <linearGradient id="status" gradientUnits="userSpaceOnUse" x1="110" y1="0" x2="914" y2="0">
+      <stop offset="0%" stop-color="#45cc62"/>
+      <stop offset="31%" stop-color="#45cc62"/>
+      <stop offset="45%" stop-color="#f1d447"/>
+      <stop offset="56%" stop-color="#ff4d45"/>
+      <stop offset="68%" stop-color="#f0ce42"/>
+      <stop offset="77%" stop-color="#45cc62"/>
+      <stop offset="100%" stop-color="#45cc62"/>
+    </linearGradient>
+
+    <linearGradient id="highlight" gradientUnits="userSpaceOnUse" x1="110" y1="0" x2="914" y2="0">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.20"/>
+      <stop offset="45%" stop-color="#ffffff" stop-opacity="0.26"/>
+      <stop offset="56%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.20"/>
+    </linearGradient>
+  </defs>
+
+  <!-- dark keyline for definition on light or dark GitHub surfaces -->
+  <path
+    d="M120 540 H326 L470 276 L560 748 L698 540 H904"
+    fill="none"
+    stroke="#0d2a1e"
+    stroke-width="94"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+
+  <!-- status pulse -->
+  <path
+    d="M120 540 H326 L470 276 L560 748 L698 540 H904"
+    fill="none"
+    stroke="url(#status)"
+    stroke-width="70"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+
+  <!-- restrained surface highlight; no blur or glow -->
+  <path
+    d="M120 540 H326 L470 276 L560 748 L698 540 H904"
+    fill="none"
+    stroke="url(#highlight)"
+    stroke-width="10"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+</svg>

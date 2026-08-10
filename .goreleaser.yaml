@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Phillip Cloud
+#
+# SPDX-License-Identifier: Apache-2.0
+
 version: 2
 
 project_name: gh-pulse
@@ -47,6 +51,7 @@ dockers_v2:
     labels:
       org.opencontainers.image.title: gh-pulse
       org.opencontainers.image.description: Terminal-native GitHub service health dashboard
+      org.opencontainers.image.licenses: Apache-2.0
       org.opencontainers.image.source: https://github.com/cpcloud/gh-pulse
       org.opencontainers.image.revision: "{{ .FullCommit }}"
       org.opencontainers.image.version: "{{ .Tag }}"
