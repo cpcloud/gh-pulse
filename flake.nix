@@ -35,6 +35,7 @@
             };
             vendorHash = "sha256-A2RV8e62VAaSFgxIzLhKXWcv785tvJiNRJ2wUal6n/I=";
             subPackages = [ "cmd/gh-pulse" ];
+            dontStrip = true;
 
             ldflags = [
               "-X main.version=${finalAttrs.version}"
