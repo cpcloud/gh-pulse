@@ -37,8 +37,6 @@
             subPackages = [ "cmd/gh-pulse" ];
 
             ldflags = [
-              "-s"
-              "-w"
               "-X main.version=${finalAttrs.version}"
             ];
 
