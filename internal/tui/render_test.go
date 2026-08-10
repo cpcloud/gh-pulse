@@ -54,6 +54,7 @@ func TestRenderAt80ColumnsKeepsAggregateAndMonochromeSignals(t *testing.T) {
 	assert.NotContains(t, plain, ".m!#X")
 	assert.Equal(t, 1, strings.Count(plain, "GITHUB PULSE"))
 	assert.NotContains(t, plain, "PLATFORM UPTIME")
+	assert.Contains(t, plain, "GITHUB PULSE │ 90D UPTIME  99.95%  │ ALL TIME UPTIME 100.00% SINCE 2022")
 }
 
 func TestRenderAggregateUsesOneHumanAppHeader(t *testing.T) {
@@ -78,6 +79,7 @@ func TestRenderAggregateColorsUptimeBadgeFromLiveState(t *testing.T) {
 	output := renderAggregate(data, 116, newStyles(false), 42*time.Second)
 
 	assert.Contains(t, output, newStyles(false).heroMetric(pulse.Major).Render("99.95%"))
+	assert.Contains(t, output, newStyles(false).state(pulse.Major).Bold(true).Render("100.00%"))
 	assert.Contains(t, ansi.Strip(output), "MAJOR SERVICE DISRUPTION")
 	assert.NotContains(t, ansi.Strip(output), "●")
 }
@@ -230,7 +232,6 @@ func TestAggregateCombinesDailyAndRollingHistory(t *testing.T) {
 	assert.NotContains(t, output, "PEAK")
 	assert.NotContains(t, output, "LOW")
 	assert.NotContains(t, output, "LIFETIME")
-	assert.NotContains(t, output, "ALL TIME")
 }
 
 func TestWideHistoryStripsShareOneRow(t *testing.T) {
@@ -306,7 +307,7 @@ func TestRenderUsesDesignedStatusSurfaces(t *testing.T) {
 	plain := ansi.Strip(render(fixtureSnapshot(t), renderOptions{width: 120, height: 40, mono: true}))
 	assert.Contains(t, plain, "╭")
 	assert.Contains(t, plain, "GITHUB PULSE")
-	assert.Contains(t, plain, "-90 DAYS")
+	assert.Contains(t, plain, "LAST 90 DAYS")
 	assert.Contains(t, plain, "2026-08-08")
 	assert.Contains(t, plain, "▮ operational")
 	assert.Contains(t, plain, "99.95%")
@@ -320,8 +321,10 @@ func TestRenderKeepsUptimeMetricProminentUnderAppHeader(t *testing.T) {
 	require.GreaterOrEqual(t, header, 0)
 	assert.Equal(t, 1, strings.Count(plain, "GITHUB PULSE"))
 	assert.NotContains(t, plain, "PLATFORM UPTIME")
-	assert.Regexp(t, `[0-9]+\.[0-9]{2}% +90D UPTIME`, lines[header])
-	assert.Contains(t, lines[header], "SINCE 2022")
+	assert.Contains(t, lines[header], "GITHUB PULSE │ 90D UPTIME")
+	assert.Regexp(t, `90D UPTIME +[0-9]+\.[0-9]{2}%`, lines[header])
+	assert.Regexp(t, `ALL TIME UPTIME +[0-9]+\.[0-9]{2}% SINCE 2022`, lines[header])
+	assert.NotContains(t, lines[header], "UPTIME:")
 }
 
 func TestRenderFeedDensityFollowsAvailableTerminalHeight(t *testing.T) {
@@ -398,7 +401,7 @@ func TestNinetyDayAnchorsEndWithStrip(t *testing.T) {
 	t.Parallel()
 	history := fixtureSnapshot(t).History
 	ninetyDayLines := strings.Split(ansi.Strip(render90DayTimeline(history, 90, newStyles(true))), "\n")
-	anchor := lineIndexContaining(ninetyDayLines, "-90 DAYS")
+	anchor := lineIndexContaining(ninetyDayLines, "LAST 90 DAYS")
 	require.GreaterOrEqual(t, anchor, 0)
 	require.Less(t, anchor+1, len(ninetyDayLines))
 	assert.Contains(t, ninetyDayLines[anchor], "2026-08-08")
