@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Phillip Cloud
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # CI Security Hardening
 
 This is the living design for GitHub Actions security in `gh-pulse`. Keep it in

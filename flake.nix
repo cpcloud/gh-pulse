@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Phillip Cloud
+#
+# SPDX-License-Identifier: Apache-2.0
+
 {
   description = "Terminal-native GitHub service health dashboard";
 
@@ -44,6 +48,7 @@
             meta = {
               description = "Terminal-native GitHub service health and uptime dashboard";
               homepage = "https://github.com/cpcloud/gh-pulse";
+              license = pkgs.lib.licenses.asl20;
               mainProgram = "gh-pulse";
             };
           });

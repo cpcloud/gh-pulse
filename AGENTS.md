@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Phillip Cloud
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Contributor Guide
 
 ## Product Boundaries

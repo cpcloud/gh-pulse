@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Phillip Cloud
+//
+// SPDX-License-Identifier: Apache-2.0
+
 module github.com/cpcloud/gh-pulse
 
 go 1.26

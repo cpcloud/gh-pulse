@@ -1,10 +1,23 @@
+<!--
+SPDX-FileCopyrightText: 2026 Phillip Cloud
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
+<!-- markdownlint-disable MD033 MD041 -->
+<!-- HTML keeps the icon centered and sized without changing the SVG. -->
+<p align="center">
+  <img src="images/github-pulse-minimal.svg" alt="GitHub Pulse icon" width="160">
+</p>
+
 # GitHub Pulse
+<!-- markdownlint-enable MD033 MD041 -->
 
 ![GitHub Pulse dashboard](images/gh-pulse.png)
 
-GitHub Pulse is a fast, terminal-native view of GitHub service health. It pairs
-the official live status with transparent reconstructed uptime history, then
-keeps the two sources honest by never pretending they are the same dataset.
+GitHub Pulse is a fast, terminal-native view of GitHub service health. It shows
+GitHub's official current status separately from uptime reconstructed from
+public incident history.
 
 It runs as `gh pulse`, works without a GitHub token, and can emit stable JSON for
 scripts and agents.
@@ -26,10 +39,6 @@ Install a published release as a GitHub CLI extension:
 gh extension install cpcloud/gh-pulse
 gh pulse
 ```
-
-The repository is currently private, so installation requires a GitHub CLI
-login that can read it. Running the extension does not use that login and sends
-no credentials to any status endpoint.
 
 The published container supports 64-bit x86 and ARM Linux and runs as a
 non-root user:
@@ -148,8 +157,8 @@ nix build .#default
 ```
 
 The default package and `packages.<system>.gh-pulse` support x86-64 and ARM64
-Linux plus ARM64 macOS. Native Go CI builds and tests x86-64 and ARM64 on Linux,
-macOS, and Windows.
+Linux plus ARM64 macOS. Native Go CI builds and tests x86-64 and ARM64 on Linux
+and macOS, plus x86-64 on Windows.
 
 GoReleaser builds the six GitHub CLI binaries, their SHA-256 checksums, and the
 multi-architecture container image. Test the complete release configuration
@@ -165,3 +174,8 @@ settings, choose Change visibility, and select Public. GoReleaser cannot change
 that account-level setting, and the workflow deliberately has no package-admin
 permission. This is a one-time setting; GitHub does not allow a public package
 to be made private again.
+
+## License
+
+GitHub Pulse is licensed under the [Apache License 2.0](LICENSE), identified by
+the SPDX expression `Apache-2.0`.
