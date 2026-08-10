@@ -1,0 +1,55 @@
+version: 2
+
+project_name: gh-pulse
+
+builds:
+  - id: gh-pulse
+    main: ./cmd/gh-pulse
+    binary: gh-pulse
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Tag }}
+
+archives:
+  - ids:
+      - gh-pulse
+    formats:
+      - binary
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+dockers_v2:
+  - id: gh-pulse
+    ids:
+      - gh-pulse
+    dockerfile: Dockerfile
+    images:
+      - ghcr.io/cpcloud/gh-pulse
+    tags:
+      - "{{ .Tag }}"
+      - "{{ if and (not .Prerelease) (not .IsSnapshot) }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      org.opencontainers.image.title: gh-pulse
+      org.opencontainers.image.description: Terminal-native GitHub service health dashboard
+      org.opencontainers.image.source: https://github.com/cpcloud/gh-pulse
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.version: "{{ .Tag }}"
+
+changelog:
+  use: github-native

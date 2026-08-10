@@ -29,6 +29,13 @@ The repository is currently private, so installation requires a GitHub CLI
 login that can read it. Running the extension does not use that login and sends
 no credentials to any status endpoint.
 
+The published container supports 64-bit x86 and ARM Linux and runs as a
+non-root user:
+
+```sh
+docker run --rm -it ghcr.io/cpcloud/gh-pulse:latest
+```
+
 With Nix, build or run the default package from a local checkout:
 
 ```sh
@@ -121,6 +128,7 @@ The Nix flake is the supported development environment:
 
 ```sh
 nix develop
+goreleaser check
 go test ./...
 golangci-lint run ./...
 prek install
@@ -137,3 +145,18 @@ nix build .#default
 The default package and `packages.<system>.gh-pulse` support x86-64 and ARM64
 Linux plus ARM64 macOS. Native Go CI builds and tests x86-64 and ARM64 on Linux,
 macOS, and Windows.
+
+GoReleaser builds the six GitHub CLI binaries, their SHA-256 checksums, and the
+multi-architecture container image. Test the complete release configuration
+without publishing anything with:
+
+```sh
+goreleaser release --snapshot --clean
+```
+
+GHCR creates the package as private on its first publish. After the first tagged
+release, the package owner must open `cpcloud` > Packages > `gh-pulse` > Package
+settings, choose Change visibility, and select Public. GoReleaser cannot change
+that account-level setting, and the workflow deliberately has no package-admin
+permission. This is a one-time setting; GitHub does not allow a public package
+to be made private again.

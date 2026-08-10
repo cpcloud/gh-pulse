@@ -45,11 +45,16 @@ The Bubble Tea model must not become the data or uptime calculation layer.
 Enter the development environment with `nix develop`. Before committing, run:
 
 ```sh
+goreleaser check
 go test -race -count=1 ./...
 golangci-lint run ./...
 prek run --all-files
+actionlint
 nix build --no-link .#default
 ```
+
+Changes to the release configuration also require a clean, non-publishing
+snapshot build with `goreleaser release --snapshot --clean`.
 
 Tests use Testify. Use `require` when later assertions depend on setup and
 `assert` when collecting independent failures is useful. HTTP tests use local
@@ -67,8 +72,15 @@ screenshots without explicit approval.
 - Fix every linter warning. Do not disable a check without a narrow explanatory
   comment.
 - Keep GitHub Actions dependencies current and pinned to full commit hashes.
-  Prefer GitHub-maintained actions; the Nix installer is the only approved
-  third-party action.
+  Use GitHub-maintained actions or official actions published by the tool
+  vendor. The approved vendors are Cachix for Nix, Docker for container tooling,
+  and GoReleaser for releases.
 - Release assets must keep GitHub CLI's `gh-pulse-OS-ARCH` naming convention.
+- GoReleaser owns release binaries, checksums, and the multi-architecture GHCR
+  image. Keep all binaries reproducible with `-trimpath`, preserve the version
+  ldflag, and run the image as a non-root user in a minimal runtime.
+- GHCR package visibility is a one-time owner setting after the first publish;
+  the release workflow must not gain package-admin or delete permission to
+  automate it.
 - Do not commit credentials, private endpoints, local absolute paths, or real
   user data in fixtures.

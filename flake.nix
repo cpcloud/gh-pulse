@@ -64,6 +64,7 @@
               pkgs.actionlint
               pkgs.go
               pkgs.golangci-lint
+              pkgs.goreleaser
               pkgs.gopls
               pkgs.gotools
               pkgs.markdownlint-cli2
