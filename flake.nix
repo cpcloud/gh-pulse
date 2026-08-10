@@ -56,20 +56,28 @@
         system:
         let
           pkgs = import nixpkgs { inherit system; };
+          vhsFontsConf = pkgs.makeFontsConf {
+            fontDirectories = [ "${pkgs.nerd-fonts.hack}/share/fonts/truetype" ];
+          };
         in
         {
           default = pkgs.mkShellNoCC {
             packages = [
               pkgs.actionlint
+              pkgs.ffmpeg-headless
               pkgs.go
               pkgs.golangci-lint
               pkgs.goreleaser
               pkgs.gopls
               pkgs.gotools
               pkgs.markdownlint-cli2
+              pkgs.nerd-fonts.hack
               pkgs.nixfmt
               pkgs.prek
+              pkgs.vhs
             ];
+
+            FONTCONFIG_FILE = vhsFontsConf;
           };
         }
       );
