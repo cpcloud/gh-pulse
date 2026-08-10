@@ -2,3 +2,5 @@
 /gh-pulse
 /coverage.out
 .DS_Store
+# roborev snapshots
+/.roborev/
