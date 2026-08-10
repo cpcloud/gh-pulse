@@ -12,12 +12,13 @@ network policy, or pinned dependencies change.
 
 ## Purpose
 
-The workflows protect the repository in four complementary ways:
+The workflows protect the repository in five complementary ways:
 
 - restrict network access from every supported GitHub-hosted job;
 - detect suspicious Go constructs and known Go vulnerabilities;
 - scan Git history for committed secrets;
-- run CodeQL analysis with narrowly scoped upload permission.
+- run CodeQL analysis with narrowly scoped upload permission;
+- exercise GitHub CLI installation and tokenless JSON execution.
 
 These controls do not alter application behavior, release authority,
 repository visibility, or the separate private-data scrubbing work.
@@ -26,10 +27,10 @@ repository visibility, or the separate private-data scrubbing work.
 
 | Workflow | Trigger | Jobs | Token authority |
 | --- | --- | --- | --- |
-| `CI` | Pull requests and pushes to `main` | Native Go, Nix, repository quality | `contents: read` |
+| `CI` | Pull requests and pushes to `main` | Native Go, extension smoke, Nix, repository quality | `contents: read` |
 | `Security` | Pull requests and pushes to `main` | Go security, secret scan | `contents: read` |
 | `CodeQL` | Pull requests and pushes to `main` | Go analysis | `actions: read`, `contents: read`, `security-events: write` |
-| `Release` | Tags matching `v*` | GitHub release and container publication | `contents: write`, `packages: write` |
+| `Release` | Tags matching `v*` | GitHub release, container publication, published-extension smoke | Publication: `contents: write`, `packages: write`; smoke: `contents: read` |
 
 CodeQL is separate from read-only security checks so only its analysis job can
 upload SARIF results. Release keeps only the authority needed for GitHub
@@ -51,6 +52,8 @@ The allowlists cover these dependency groups:
 | Job | Allowed dependency groups |
 | --- | --- |
 | Native Go | GitHub action assets, Go distribution, and Go modules |
+| Checkout extension smoke | Native Go dependencies plus GitHub Status and the reconstructed-history source |
+| Published extension smoke | GitHub release assets, GitHub Status, and the reconstructed-history source |
 | Nix | GitHub action assets, Nix installation and cache endpoints, and build dependencies |
 | Repository quality | Nix dependencies plus the Go endpoints used by repository hooks |
 | Go security | GitHub action assets, Go modules, and the Go vulnerability database |
@@ -67,6 +70,27 @@ Harden-Runner v2.20.1 does not install its Windows agent on GitHub-hosted
 Windows ARM64. That runner is omitted from the native Go test matrix so no test
 job runs without enforcement. GoReleaser remains unchanged and continues to
 build and archive `gh-pulse-windows-arm64.exe`.
+
+## Extension Smoke Tests
+
+Pull-request CI builds `gh-pulse` in the repository root, installs the current
+checkout with `gh extension install .`, and runs:
+
+```bash
+gh pulse --json > /dev/null
+```
+
+The GitHub CLI configuration lives under the runner's temporary directory so
+the test cannot depend on preinstalled extensions or user configuration. The
+runtime command receives no GitHub token and exercises the same public data
+sources as an installed user command.
+
+After GoReleaser publishes a tagged release, a dependent read-only job installs
+`cpcloud/gh-pulse` pinned to that tag and runs the same JSON smoke test. This
+checks the published asset name, download, GitHub CLI dispatch, and runtime
+startup. Because publication happens first, this check reports a broken release
+but cannot prevent its creation. The separate job has `contents: read`, so the
+install step never receives the publication job's write authority.
 
 ## Go Security
 
@@ -143,7 +167,9 @@ platforms, inputs, and network behavior.
   secret-scan job.
 - Harden-Runner blocks unlisted egress; legitimate omissions are corrected
   narrowly from evidence.
-- No workflow logs response bodies or adds credentials.
+- Extension installation, dispatch, or required-source failures fail their
+  smoke-test job.
+- No workflow logs response bodies or credentials.
 
 ## Verification
 
@@ -174,7 +200,8 @@ go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 ```
 
 An actual GitHub Actions run remains authoritative for Harden-Runner egress,
-runner support, StepSecurity subscription status, and CodeQL upload.
+runner support, extension installation, live-source access, StepSecurity
+subscription status, and CodeQL upload.
 
 ## Design Decisions
 
