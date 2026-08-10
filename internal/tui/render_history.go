@@ -20,9 +20,9 @@ func renderAggregate(data pulse.Snapshot, width int, s styles, countdown time.Du
 	if state != pulse.Operational {
 		headerLeft += "  " + s.state(state).Bold(true).Render(strings.ToUpper(stateDescription(state)))
 	}
-	compact := innerWidth < 100
+	compact := innerWidth < 100 || state != pulse.Operational
 	if data.Sources.History.Available {
-		headerLeft += "  " + renderHeaderMetrics(data.History, state, compact, s)
+		headerLeft += " " + renderHeaderMetrics(data.History, state, s)
 	}
 	refresh := "↻ " + formatCountdown(countdown)
 	if data.Overall.UpdatedAt != nil {
@@ -33,13 +33,16 @@ func renderAggregate(data pulse.Snapshot, width int, s styles, countdown time.Du
 		}
 	}
 	header := between(headerLeft, s.muted.Render(refresh), innerWidth)
+	if compact && data.Sources.History.Available {
+		header = truncate(headerLeft, innerWidth) + "\n" + lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Right).Render(s.muted.Render(refresh))
+	}
 	if !data.Sources.History.Available {
 		return s.panel(width).Render(header + "\n\n" + s.muted.Render("Reconstructed history unavailable"))
 	}
 	return s.panel(width).Render(header + "\n" + renderCombinedHistory(data.History, innerWidth, s))
 }
 
-func renderHeaderMetrics(history pulse.History, state pulse.State, compact bool, s styles) string {
+func renderHeaderMetrics(history pulse.History, state pulse.State, s styles) string {
 	uptime, tracked := "--", "--"
 	if history.Uptime90Days != nil {
 		uptime = fmt.Sprintf("%.2f%%", *history.Uptime90Days)
@@ -47,18 +50,12 @@ func renderHeaderMetrics(history pulse.History, state pulse.State, compact bool,
 	if history.TrackedUptime != nil {
 		tracked = fmt.Sprintf("%.2f%%", *history.TrackedUptime)
 	}
-	coverage := "HISTORY"
+	coverage := ""
 	if !history.CoverageStart.IsZero() {
-		coverage = fmt.Sprintf("SINCE %d", history.CoverageStart.Year())
-		if compact {
-			coverage = "SINCE '" + history.CoverageStart.Format("06")
-		}
+		coverage = " " + s.muted.Render(fmt.Sprintf("SINCE %d", history.CoverageStart.Year()))
 	}
-	label := "90D UPTIME"
-	if compact {
-		label = "90D"
-	}
-	return s.heroMetric(state).Render(uptime) + " " + s.title.Render(label) + "  ·  " + s.title.Render(tracked) + " " + s.muted.Render(coverage)
+	separator := s.muted.Render("│")
+	return separator + " " + s.title.Render("90D UPTIME") + " " + s.heroMetric(state).Render(uptime) + " " + separator + " " + s.title.Render("ALL TIME UPTIME") + " " + s.state(state).Bold(true).Render(tracked) + coverage
 }
 
 func renderCombinedHistory(history pulse.History, width int, s styles) string {
@@ -67,7 +64,7 @@ func renderCombinedHistory(history pulse.History, width int, s styles) string {
 	const summaryMinWidth = 32
 	if width >= timelineWidth+summaryGap+summaryMinWidth {
 		detailsWidth := width - timelineWidth - summaryGap
-		anchors := between(s.muted.Render("-90 DAYS"), s.muted.Render(latestDayLabel(history)), timelineWidth)
+		anchors := between(s.muted.Render("LAST 90 DAYS"), s.muted.Render(latestDayLabel(history)), timelineWidth)
 		chartHeaders := lipgloss.JoinHorizontal(
 			lipgloss.Top,
 			lipgloss.NewStyle().Width(timelineWidth).Render(anchors),
@@ -95,7 +92,7 @@ func renderCombinedHistory(history pulse.History, width int, s styles) string {
 }
 
 func render90DayTimeline(history pulse.History, width int, s styles) string {
-	anchors := between(s.muted.Render("-90 DAYS"), s.muted.Render(latestDayLabel(history)), width)
+	anchors := between(s.muted.Render("LAST 90 DAYS"), s.muted.Render(latestDayLabel(history)), width)
 	return anchors + "\n" + renderHistoryStrip(history.Days90, width, s) + "\n" + renderHistoryLegend(s)
 }
 
