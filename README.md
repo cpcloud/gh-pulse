@@ -86,6 +86,9 @@ The official API and Atom feed drive the current and recent-status views. The
 reconstructed dataset alone drives historical uptime. GitHub Pulse does not
 compare, reconcile, or fill gaps between them.
 
+The component uptime column is the mrshu reconstruction, not GitHub Status's
+published 90-day component chart, so the percentages need not match.
+
 ### Uptime Calculation
 
 History coverage begins at the source project's declared start on 2022-06-11.
