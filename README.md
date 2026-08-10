@@ -1,5 +1,7 @@
 # GitHub Pulse
 
+![GitHub Pulse dashboard](images/gh-pulse.png)
+
 GitHub Pulse is a fast, terminal-native view of GitHub service health. It pairs
 the official live status with transparent reconstructed uptime history, then
 keeps the two sources honest by never pretending they are the same dataset.
