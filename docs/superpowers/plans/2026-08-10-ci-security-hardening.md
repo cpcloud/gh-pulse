@@ -264,8 +264,14 @@ contains these steps in order:
   uses: step-security/trufflehog-action@72d1f67314fcd8ca707e19692ff0cb670d7d02c7 # v3.95.9
   with:
     version: 3.96.0
+    # Blocked provider verification is an unknown result and fails closed.
     extra_args: --results=verified,unknown
 ```
+
+Provider verification endpoints are intentionally absent because they vary by
+detector and candidate. TruffleHog classifies blocked verification as
+`unknown`; the selected result categories preserve that candidate as a failing
+finding instead of hiding it.
 
 Do not add secrets, write permissions, schedules, manual triggers, ignored
 findings, or fallback behavior.

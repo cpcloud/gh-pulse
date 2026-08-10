@@ -58,7 +58,10 @@ Add a read-only `Security` workflow with two Linux jobs:
 - `Secret scan` checks out full Git history and runs the
   StepSecurity-maintained TruffleHog action. The action is pinned to its current
   v3.95.9 commit. Its `version` input pins the TruffleHog scanner to v3.96.0,
-  while `extra_args` selects verified and unknown results.
+  while `extra_args` selects verified and unknown results. Credential-provider
+  verification endpoints are intentionally not allowlisted because they are
+  detector- and candidate-specific. TruffleHog classifies a blocked
+  verification attempt as `unknown`, which remains a finding and fails the job.
 
 The Go security tools run as pinned Go modules after the existing official Go
 setup action. This avoids adding action wrappers where the upstream command is
@@ -115,6 +118,8 @@ comment. Direct Go tools use explicit module versions.
 - CodeQL upload failures fail the CodeQL job; results are never discarded to
   preserve a green check.
 - TruffleHog findings or verification errors fail the secret-scan job.
+- Strict egress may classify a candidate as `unknown` instead of clearing it as
+  unverified; that fail-closed false-positive risk is accepted.
 - Harden-Runner blocks unlisted egress. Missing endpoints are fixed narrowly
   from observed failures.
 - Windows ARM64 fails explicitly while the pinned Harden-Runner release lacks
