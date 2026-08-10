@@ -31,6 +31,13 @@ repos:
         language: system
         files: ^\.github/workflows/.*\.ya?ml$
 
+      - id: goreleaser-check
+        name: goreleaser check
+        entry: goreleaser check
+        language: system
+        files: ^\.goreleaser\.ya?ml$
+        pass_filenames: false
+
       - id: markdownlint
         name: markdownlint
         entry: markdownlint-cli2

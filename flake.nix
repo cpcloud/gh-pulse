@@ -35,10 +35,9 @@
             };
             vendorHash = "sha256-A2RV8e62VAaSFgxIzLhKXWcv785tvJiNRJ2wUal6n/I=";
             subPackages = [ "cmd/gh-pulse" ];
+            dontStrip = true;
 
             ldflags = [
-              "-s"
-              "-w"
               "-X main.version=${finalAttrs.version}"
             ];
 
@@ -64,6 +63,7 @@
               pkgs.actionlint
               pkgs.go
               pkgs.golangci-lint
+              pkgs.goreleaser
               pkgs.gopls
               pkgs.gotools
               pkgs.markdownlint-cli2
