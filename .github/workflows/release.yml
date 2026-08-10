@@ -17,6 +17,27 @@ jobs:
       contents: write
       packages: write
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            auth.docker.io:443
+            gcr.io:443
+            ghcr.io:443
+            github.com:443
+            github-releases.githubusercontent.com:443
+            objects.githubusercontent.com:443
+            pkg-containers.githubusercontent.com:443
+            production.cloudflare.docker.com:443
+            proxy.golang.org:443
+            release-assets.githubusercontent.com:443
+            registry-1.docker.io:443
+            storage.googleapis.com:443
+            sum.golang.org:443
+            uploads.github.com:443
+
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

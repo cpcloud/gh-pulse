@@ -31,9 +31,21 @@ jobs:
             runner: macos-latest
           - name: Windows x86-64
             runner: windows-latest
-          - name: Windows ARM64
-            runner: windows-11-arm
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            github-releases.githubusercontent.com:443
+            objects.githubusercontent.com:443
+            proxy.golang.org:443
+            release-assets.githubusercontent.com:443
+            storage.googleapis.com:443
+            sum.golang.org:443
+
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -66,6 +78,22 @@ jobs:
           - name: macOS ARM64
             runner: macos-latest
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            cache.nixos.org:443
+            codeload.github.com:443
+            github.com:443
+            github-releases.githubusercontent.com:443
+            objects.githubusercontent.com:443
+            proxy.golang.org:443
+            releases.nixos.org:443
+            storage.googleapis.com:443
+            sum.golang.org:443
+
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -82,6 +110,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            cache.nixos.org:443
+            codeload.github.com:443
+            github.com:443
+            github-releases.githubusercontent.com:443
+            objects.githubusercontent.com:443
+            proxy.golang.org:443
+            releases.nixos.org:443
+            storage.googleapis.com:443
+            sum.golang.org:443
+
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
