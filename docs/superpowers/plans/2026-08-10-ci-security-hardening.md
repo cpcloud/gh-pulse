@@ -82,7 +82,7 @@ Insert this as the first step in `go`, then immediately reject Windows ARM64:
       sum.golang.org:443
 
 - name: Reject unsupported Harden-Runner platform
-  if: matrix.runner == 'windows-11-arm'
+  if: always() && matrix.runner == 'windows-11-arm'
   shell: pwsh
   run: |
     Write-Error "Harden-Runner v2.20.1 does not support Windows ARM64"
@@ -100,7 +100,10 @@ allowed-endpoints: >
   github.com:443
   github-releases.githubusercontent.com:443
   objects.githubusercontent.com:443
+  proxy.golang.org:443
   releases.nixos.org:443
+  storage.googleapis.com:443
+  sum.golang.org:443
 ```
 
 Insert it as the first step in `quality` with the union needed by `nix develop`
