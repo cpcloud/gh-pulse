@@ -42,11 +42,10 @@ specific failed call, not weakened to audit mode or a broad internet wildcard.
 
 Harden-Runner v2.20.0 added block mode for GitHub-hosted macOS and Windows.
 Version v2.20.1 is the current release and will be pinned. Its current source
-still rejects Windows ARM64 before installing the agent. The existing
-`windows-11-arm` matrix leg will therefore include a step immediately after
-Harden-Runner that prints an unsupported-platform error and exits nonzero. This
-prevents the job from continuing without enforcement. The explicit failure
-step can be removed when a pinned upstream release supports Windows ARM64.
+still rejects Windows ARM64 before installing the agent. The `windows-11-arm`
+leg is therefore omitted from the CI test matrix so no test job runs without
+enforcement. The GoReleaser configuration remains unchanged and continues to
+produce the Windows ARM64 release binary.
 
 ### Security Analysis
 
@@ -84,10 +83,10 @@ the default security query suite and adds no schedule.
 
 ### Existing Workflows
 
-The CI and release workflows keep their current triggers, job matrices,
-commands, timeouts, concurrency, and token permissions. Their only behavioral
-change is the first-step Harden-Runner block policy plus the explicit Windows
-ARM64 unsupported-platform failure.
+The CI and release workflows keep their current triggers, commands, timeouts,
+concurrency, and token permissions. Their behavioral changes are the first-step
+Harden-Runner block policy and removal of the unsupported Windows ARM64 test
+leg. Release targets remain unchanged.
 
 Release retains exactly `contents: write` and `packages: write`. No package
 administration, visibility, deletion, identity-token, or security-event
@@ -123,8 +122,8 @@ comment. Direct Go tools use explicit module versions.
   unverified; that fail-closed false-positive risk is accepted.
 - Harden-Runner blocks unlisted egress. Missing endpoints are fixed narrowly
   from observed failures.
-- Windows ARM64 fails explicitly while the pinned Harden-Runner release lacks
-  agent support.
+- Windows ARM64 is omitted from the test matrix while the pinned Harden-Runner
+  release lacks agent support; GoReleaser still builds the release artifact.
 - No workflow logs response bodies or adds credentials.
 
 ## Verification

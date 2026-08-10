@@ -26,10 +26,10 @@ TruffleHog action, GitHub CodeQL, Go toolchain, gosec, govulncheck
   `5595ccaf912efad79be6eef63a5619ff05969be3`.
 - Run gosec v2.28.0 and govulncheck v1.6.0 as versioned Go modules.
 - Keep every `uses:` value pinned to a 40-character commit SHA.
-- Preserve existing triggers, matrices, timeouts, concurrency, release
-  authority, and least-privilege token permissions.
-- Fail `windows-11-arm` explicitly after Harden-Runner until its Windows ARM64
-  agent is supported.
+- Preserve existing triggers, timeouts, concurrency, release authority, and
+  least-privilege token permissions.
+- Omit `windows-11-arm` from the CI test matrix until Harden-Runner supports its
+  agent, while preserving the GoReleaser Windows ARM64 build target.
 - Treat missing egress endpoints as CI failures; do not add audit fallback,
   broad internet wildcards, `continue-on-error`, or ignored findings.
 - Do not change repository visibility or scrub-private-data work.
@@ -48,8 +48,8 @@ TruffleHog action, GitHub CodeQL, Go toolchain, gosec, govulncheck
 **Interfaces:**
 
 - Consumes: Existing CI matrices, commands, and release permissions.
-- Produces: First-step block policies for all existing jobs and an explicit
-  unsupported-platform failure for Windows ARM64.
+- Produces: First-step block policies for all retained jobs; Windows ARM64
+  remains a GoReleaser target but is omitted from the CI test matrix.
 
 - [ ] **Step 1: Record the format-check baseline**
 
@@ -65,7 +65,8 @@ literal it copies.
 
 - [ ] **Step 2: Add the CI hardening steps**
 
-Insert this as the first step in `go`, then immediately reject Windows ARM64:
+Remove the unsupported `windows-11-arm` entry from the `go` test matrix, then
+insert this as the first step in the retained matrix jobs:
 
 ```yaml
 - name: Harden runner
@@ -81,13 +82,6 @@ Insert this as the first step in `go`, then immediately reject Windows ARM64:
       release-assets.githubusercontent.com:443
       storage.googleapis.com:443
       sum.golang.org:443
-
-- name: Reject unsupported Harden-Runner platform
-  if: always() && matrix.runner == 'windows-11-arm'
-  shell: pwsh
-  run: |
-    Write-Error "Harden-Runner v2.20.1 does not support Windows ARM64"
-    exit 1
 ```
 
 Insert the same pinned action as the first step in `nix` with this job-specific
@@ -429,10 +423,11 @@ the release workflow changed even though `.goreleaser.yaml` did not.
 
 - [ ] **Step 4: Audit the final diff**
 
-Confirm that all new workflows are least privilege, every job begins with
-Harden-Runner, Windows ARM64 fails explicitly, the TruffleHog action is the
-StepSecurity-maintained fork, every action uses a 40-character commit SHA, and
-no scrub-private-data work or unrelated file changed.
+Confirm that all new workflows are least privilege, every retained job begins
+with Harden-Runner, Windows ARM64 remains a GoReleaser target but not a CI test
+matrix entry, the TruffleHog action is the StepSecurity-maintained fork, every
+action uses a 40-character commit SHA, and no scrub-private-data work or
+unrelated file changed.
 
 - [ ] **Step 5: Commit**
 

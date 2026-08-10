@@ -31,8 +31,6 @@ jobs:
             runner: macos-latest
           - name: Windows x86-64
             runner: windows-latest
-          - name: Windows ARM64
-            runner: windows-11-arm
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
@@ -47,13 +45,6 @@ jobs:
             release-assets.githubusercontent.com:443
             storage.googleapis.com:443
             sum.golang.org:443
-
-      - name: Reject unsupported Harden-Runner platform
-        if: always() && matrix.runner == 'windows-11-arm'
-        shell: pwsh
-        run: |
-          Write-Error "Harden-Runner v2.20.1 does not support Windows ARM64"
-          exit 1
 
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
