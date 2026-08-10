@@ -58,10 +58,11 @@ Add a read-only `Security` workflow with two Linux jobs:
 - `Secret scan` checks out full Git history and runs the
   StepSecurity-maintained TruffleHog action. The action is pinned to its current
   v3.95.9 commit. Its `version` input pins the TruffleHog scanner to v3.96.0,
-  while `extra_args` selects verified and unknown results. Credential-provider
-  verification endpoints are intentionally not allowlisted because they are
-  detector- and candidate-specific. TruffleHog classifies a blocked
-  verification attempt as `unknown`, which remains a finding and fails the job.
+  while `extra_args` selects verified and unknown results and fails on scan
+  errors. Credential-provider verification endpoints are intentionally not
+  allowlisted because they are detector- and candidate-specific. TruffleHog
+  classifies a blocked verification attempt as `unknown`, which remains a
+  finding and fails the job.
 
 The Go security tools run as pinned Go modules after the existing official Go
 setup action. This avoids adding action wrappers where the upstream command is

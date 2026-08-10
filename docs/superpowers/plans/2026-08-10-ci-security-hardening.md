@@ -78,6 +78,7 @@ Insert this as the first step in `go`, then immediately reject Windows ARM64:
       github-releases.githubusercontent.com:443
       objects.githubusercontent.com:443
       proxy.golang.org:443
+      release-assets.githubusercontent.com:443
       storage.googleapis.com:443
       sum.golang.org:443
 
@@ -148,6 +149,7 @@ image:
       pkg-containers.githubusercontent.com:443
       production.cloudflare.docker.com:443
       proxy.golang.org:443
+      release-assets.githubusercontent.com:443
       registry-1.docker.io:443
       storage.googleapis.com:443
       sum.golang.org:443
@@ -213,6 +215,7 @@ contains these steps in order:
       github-releases.githubusercontent.com:443
       objects.githubusercontent.com:443
       proxy.golang.org:443
+      release-assets.githubusercontent.com:443
       storage.googleapis.com:443
       sum.golang.org:443
       vuln.go.dev:443
@@ -265,7 +268,7 @@ contains these steps in order:
   with:
     version: 3.96.0
     # Blocked provider verification is an unknown result and fails closed.
-    extra_args: --results=verified,unknown
+    extra_args: --results=verified,unknown --fail-on-scan-errors
 ```
 
 Provider verification endpoints are intentionally absent because they vary by
@@ -360,6 +363,7 @@ Add these steps in order:
       github-releases.githubusercontent.com:443
       objects.githubusercontent.com:443
       proxy.golang.org:443
+      release-assets.githubusercontent.com:443
       storage.googleapis.com:443
       sum.golang.org:443
       uploads.github.com:443
