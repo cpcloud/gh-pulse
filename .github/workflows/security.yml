@@ -52,9 +52,11 @@ jobs:
         run: go vet ./...
 
       - name: Run gosec
+        # renovate: datasource=go depName=github.com/securego/gosec/v2
         run: go run github.com/securego/gosec/v2/cmd/gosec@v2.28.0 ./...
 
       - name: Check known vulnerabilities
+        # renovate: datasource=go depName=golang.org/x/vuln
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 
   secret-scan:
@@ -83,6 +85,7 @@ jobs:
       - name: Scan for secrets
         uses: step-security/trufflehog-action@72d1f67314fcd8ca707e19692ff0cb670d7d02c7 # v3.95.9
         with:
+          # renovate: datasource=github-releases depName=trufflesecurity/trufflehog
           version: 3.96.0
           # Blocked provider verification is an unknown result and fails closed.
           extra_args: --results=verified,unknown --fail-on-scan-errors
