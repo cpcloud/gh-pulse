@@ -40,11 +40,12 @@ type response struct {
 		GroupID     *string `json:"group_id"`
 	} `json:"components"`
 	Incidents []struct {
-		ID        string    `json:"id"`
-		Name      string    `json:"name"`
-		Status    string    `json:"status"`
-		Impact    string    `json:"impact"`
-		UpdatedAt time.Time `json:"updated_at"`
+		ID        string     `json:"id"`
+		Name      string     `json:"name"`
+		Status    string     `json:"status"`
+		Impact    string     `json:"impact"`
+		StartedAt *time.Time `json:"started_at"`
+		UpdatedAt time.Time  `json:"updated_at"`
 		Updates   []struct {
 			Status    string    `json:"status"`
 			Body      string    `json:"body"`
@@ -133,7 +134,7 @@ func normalize(raw response) (pulse.Current, error) {
 		states = append(states, state)
 		incidents = append(incidents, pulse.Incident{
 			ID: incident.ID, Name: incident.Name, State: state, Status: incident.Status,
-			UpdatedAt: incident.UpdatedAt.UTC(), LatestUpdate: latest,
+			StartedAt: utcPtr(incident.StartedAt), UpdatedAt: incident.UpdatedAt.UTC(), LatestUpdate: latest,
 		})
 	}
 	sort.SliceStable(incidents, func(i, j int) bool { return incidents[i].UpdatedAt.After(incidents[j].UpdatedAt) })

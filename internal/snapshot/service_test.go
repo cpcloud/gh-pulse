@@ -98,7 +98,8 @@ func TestWriteJSONIsOneAgentSafeDocument(t *testing.T) {
 	downtimeDays := 5.94
 	attempted := time.Date(2026, 8, 9, 14, 0, 0, 0, time.UTC)
 	value := pulse.Snapshot{
-		SchemaVersion: 1, Components: []pulse.Component{}, ActiveIncidents: []pulse.Incident{},
+		SchemaVersion: 1, Components: []pulse.Component{},
+		ActiveIncidents:    []pulse.Incident{{ID: "active", Name: "Active incident", StartedAt: &attempted}},
 		ActiveMaintenances: []pulse.MaintenanceWindow{}, RecentFeed: []pulse.FeedEntry{},
 		Errors: []pulse.SourceError{{Source: "history", Message: "unavailable", AttemptedAt: &attempted}},
 		History: pulse.History{
@@ -111,6 +112,7 @@ func TestWriteJSONIsOneAgentSafeDocument(t *testing.T) {
 	assert.Equal(t, byte('\n'), output.Bytes()[output.Len()-1])
 	assert.Contains(t, output.String(), `"schema_version":1`)
 	assert.NotContains(t, output.String(), "attempted_at")
+	assert.NotContains(t, output.String(), "started_at")
 	var decoded struct {
 		History struct {
 			Downtime90Days *float64                 `json:"downtime_90_days"`

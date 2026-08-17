@@ -76,6 +76,25 @@ func (s styles) status(state pulse.State) string {
 	return s.state(state).Bold(true).Render(stateLabel(state))
 }
 
+func (s styles) incidentAge(elapsed time.Duration) string {
+	style := s.muted
+	if !s.mono {
+		style = style.Foreground(lipgloss.Color(incidentAgeColor(elapsed)))
+	}
+	return style.Render(formatElapsed(elapsed))
+}
+
+func incidentAgeColor(elapsed time.Duration) string {
+	switch {
+	case elapsed < time.Hour:
+		return stateColor(pulse.Minor)
+	case elapsed < 3*time.Hour:
+		return stateColor(pulse.Major)
+	default:
+		return stateColor(pulse.Critical)
+	}
+}
+
 func stateColor(state pulse.State) string {
 	switch state {
 	case pulse.Operational:
