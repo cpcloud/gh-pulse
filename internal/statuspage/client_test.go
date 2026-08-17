@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/cpcloud/gh-pulse/internal/httpx"
 	"github.com/cpcloud/gh-pulse/internal/pulse"
@@ -36,7 +37,10 @@ func TestClientNormalizesVisibleCurrentStatus(t *testing.T) {
 	assert.Nil(t, got.Components[2].Description)
 	require.NotNil(t, got.ActiveIncidents[0].LatestUpdate)
 	assert.Equal(t, "Recovery is being monitored.", got.ActiveIncidents[0].LatestUpdate.Body)
+	require.NotNil(t, got.ActiveIncidents[0].StartedAt)
+	assert.Equal(t, time.Date(2026, 8, 9, 17, 10, 0, 0, time.UTC), *got.ActiveIncidents[0].StartedAt)
 	assert.Nil(t, got.ActiveIncidents[1].LatestUpdate)
+	assert.Nil(t, got.ActiveIncidents[1].StartedAt)
 	require.Len(t, got.ActiveMaintenances, 2)
 	assert.Equal(t, []string{"active", "later"}, []string{got.ActiveMaintenances[0].ID, got.ActiveMaintenances[1].ID})
 	assert.Nil(t, got.ActiveMaintenances[1].ScheduledUntil)

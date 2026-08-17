@@ -12,6 +12,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/cpcloud/gh-pulse/internal/history"
 	"github.com/cpcloud/gh-pulse/internal/pulse"
@@ -59,6 +60,115 @@ func TestRenderAt80ColumnsKeepsAggregateAndMonochromeSignals(t *testing.T) {
 	assert.NotContains(t, plain, ".m!#X")
 	assert.Equal(t, 1, strings.Count(plain, "GITHUB PULSE"))
 	assert.NotContains(t, plain, "PLATFORM UPTIME")
+}
+
+func TestFormatElapsedUsesCompletedMinutes(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		elapsed time.Duration
+		want    string
+	}{
+		{name: "future", elapsed: -time.Second, want: "0m"},
+		{name: "under minute", elapsed: 59 * time.Second, want: "0m"},
+		{name: "minutes", elapsed: 10*time.Minute + 59*time.Second, want: "10m"},
+		{name: "hours", elapsed: 90 * time.Minute, want: "1h 30m"},
+		{name: "days", elapsed: 51*time.Hour + 4*time.Minute, want: "2d 3h 4m"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, test.want, formatElapsed(test.elapsed))
+		})
+	}
+}
+
+func TestIncidentAgeUsesElapsedColorScale(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		elapsed time.Duration
+		state   pulse.State
+	}{
+		{name: "under one hour is yellow", elapsed: 59*time.Minute + 59*time.Second, state: pulse.Minor},
+		{name: "one hour is orange", elapsed: time.Hour, state: pulse.Major},
+		{name: "under three hours stays orange", elapsed: 3*time.Hour - time.Second, state: pulse.Major},
+		{name: "three hours is red", elapsed: 3 * time.Hour, state: pulse.Critical},
+		{name: "over four hours stays red", elapsed: 5 * time.Hour, state: pulse.Critical},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s := newStyles(false)
+			expected := s.muted.Foreground(lipgloss.Color(stateColor(test.state))).Render(formatElapsed(test.elapsed))
+			assert.Equal(t, expected, s.incidentAge(test.elapsed))
+		})
+	}
+}
+
+func TestIncidentAgePreservesMonochromeStyle(t *testing.T) {
+	t.Parallel()
+	s := newStyles(true)
+	assert.Equal(t, s.muted.Render("1h 30m"), s.incidentAge(90*time.Minute))
+}
+
+func TestRenderContextKeepsIncidentAgeAheadOfOptionalUpdateAt80Columns(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 9, 18, 40, 0, 0, time.UTC)
+	started := now.Add(-90 * time.Minute)
+	data := pulse.Snapshot{ActiveIncidents: []pulse.Incident{{
+		Name:      "Incident with an unusually long Git Operations service name",
+		State:     pulse.Major,
+		Status:    "monitoring",
+		StartedAt: &started,
+		LatestUpdate: &pulse.IncidentUpdate{
+			Body: "This optional recovery narrative should yield space before the incident age disappears.",
+		},
+	}}}
+
+	plain := ansi.Strip(renderContext(data, 76, now, newStyles(true)))
+	lines := strings.Split(plain, "\n")
+	row := lineIndexContaining(lines, "MONITORING")
+	require.GreaterOrEqual(t, row, 0)
+	line := lines[row]
+	assert.Contains(t, line, "Incident with")
+	assert.Contains(t, line, "MONITORING")
+	assert.Contains(t, line, "1h 30m")
+	assert.LessOrEqual(t, ansi.StringWidth(line), 76)
+	if update := strings.Index(line, "—"); update >= 0 {
+		assert.Less(t, strings.Index(line, "1h 30m"), update)
+	}
+}
+
+func TestRenderContextOmitsAgeWhenIncidentStartIsMissing(t *testing.T) {
+	t.Parallel()
+	data := pulse.Snapshot{ActiveIncidents: []pulse.Incident{{
+		Name: "Incident without a start", State: pulse.Minor, Status: "investigating",
+	}}}
+
+	plain := ansi.Strip(renderContext(data, 76, time.Now(), newStyles(true)))
+	assert.Contains(t, plain, "INVESTIGATING")
+	assert.NotContains(t, plain, "·  ·")
+}
+
+func TestRenderContextStaysWithinTheFortyColumnModelFloor(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 9, 18, 40, 0, 0, time.UTC)
+	started := now.Add(-51*time.Hour - 4*time.Minute)
+	data := pulse.Snapshot{ActiveIncidents: []pulse.Incident{{
+		Name:      "Incident with a name that cannot fit",
+		State:     pulse.Major,
+		Status:    "investigating",
+		StartedAt: &started,
+		LatestUpdate: &pulse.IncidentUpdate{
+			Body: "Optional update that cannot fit either.",
+		},
+	}}}
+
+	lines := strings.Split(ansi.Strip(renderContext(data, 36, now, newStyles(true))), "\n")
+	for _, line := range lines {
+		assert.LessOrEqual(t, ansi.StringWidth(line), 36)
+	}
 }
 
 func TestRenderAggregateUsesOneHumanAppHeader(t *testing.T) {
@@ -649,6 +759,31 @@ func TestModelCountdownTicksWithoutRefreshingEarly(t *testing.T) {
 	t.Cleanup(model.cancelAll)
 	require.NotNil(t, command)
 	assert.Equal(t, uint64(1), model.liveGen)
+}
+
+func TestModelTickAdvancesIncidentAgeWithoutRefreshingEarly(t *testing.T) {
+	t.Parallel()
+	tickAt := time.Date(2026, 8, 9, 14, 0, 0, 0, time.UTC)
+	clock := tickAt.Add(-time.Second)
+	started := tickAt.Add(-90 * time.Minute)
+	data := fixtureSnapshot(t)
+	data.ActiveIncidents = []pulse.Incident{{
+		Name: "Incident with API Requests", State: pulse.Major, Status: "monitoring", StartedAt: &started,
+	}}
+	model := New(fetcherStub{data}, true)
+	model.now = func() time.Time { return clock }
+	model.ready = true
+	model.data = data
+	model.nextRefresh = tickAt.Add(30 * time.Second)
+	model.syncView()
+	assert.Contains(t, ansi.Strip(model.View().Content), "1h 29m")
+
+	updated, command := model.Update(tickMsg(tickAt))
+	model = updated.(*Model)
+	require.NotNil(t, command)
+	assert.Contains(t, ansi.Strip(model.View().Content), "1h 30m")
+	assert.Equal(t, uint64(0), model.liveGen)
+	assert.Equal(t, uint64(0), model.fullGen)
 }
 
 func TestModelCentersContentVerticallyWhenItFits(t *testing.T) {

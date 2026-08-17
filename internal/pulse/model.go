@@ -105,6 +105,7 @@ type Incident struct {
 	Name         string          `json:"name"`
 	State        State           `json:"state"`
 	Status       string          `json:"status"`
+	StartedAt    *time.Time      `json:"-"`
 	UpdatedAt    time.Time       `json:"updated_at"`
 	LatestUpdate *IncidentUpdate `json:"latest_update"`
 }

@@ -8,7 +8,7 @@
   ],
   "incidents": [
     {
-      "id":"incident","name":"Incident with Git Operations","status":"monitoring","impact":"minor","updated_at":"2026-08-09T13:55:00Z",
+      "id":"incident","name":"Incident with Git Operations","status":"monitoring","impact":"minor","started_at":"2026-08-09T13:10:00-04:00","updated_at":"2026-08-09T13:55:00Z",
       "incident_updates":[
         {"status":"monitoring","body":"Recovery   is\nbeing monitored.","updated_at":"2026-08-09T13:55:00Z"},
         {"status":"investigating","body":"Older update","updated_at":"2026-08-09T13:20:00Z"}

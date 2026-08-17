@@ -59,9 +59,10 @@ func New(fetcher Fetcher, monochrome bool) *Model {
 }
 
 func (m *Model) Init() tea.Cmd {
-	m.nextRefresh = m.now().Add(refreshEvery)
+	now := m.now()
+	m.nextRefresh = now.Add(refreshEvery)
 	refresh := m.startFullRefresh()
-	m.syncView()
+	m.syncViewAt(now)
 	return tea.Batch(refresh, tick())
 }
 
@@ -111,7 +112,8 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			m.cancelAll()
 			return m, tea.Quit
 		case "r":
-			m.nextRefresh = m.now().Add(refreshEvery)
+			now := m.now()
+			m.nextRefresh = now.Add(refreshEvery)
 			refresh := m.startFullRefresh()
 			return m, refresh
 		case "j", "down":
@@ -129,7 +131,7 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			m.nextRefresh = now.Add(refreshEvery)
 		}
 		if now.Before(m.nextRefresh) {
-			m.syncView()
+			m.syncViewAt(now)
 			return m, tick()
 		}
 		m.nextRefresh = now.Add(refreshEvery)
@@ -139,22 +141,24 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			refresh = m.startLive()
 		}
-		m.syncView()
+		m.syncViewAt(now)
 		return m, tea.Batch(refresh, tick())
 	case liveMsg:
 		if msg.generation == m.liveGen {
+			now := m.now()
 			m.mergeLive(msg.value)
-			m.nextRefresh = m.now().Add(refreshEvery)
-			m.syncView()
+			m.nextRefresh = now.Add(refreshEvery)
+			m.syncViewAt(now)
 		}
 	case fullMsg:
 		if msg.generation == m.fullGen {
+			now := m.now()
 			m.fullLoading = false
 			m.mergeLive(msg.value)
 			m.mergeHistory(msg.value)
 			m.ready = true
-			m.nextRefresh = m.now().Add(refreshEvery)
-			m.syncView()
+			m.nextRefresh = now.Add(refreshEvery)
+			m.syncViewAt(now)
 		}
 	default:
 		m.view, command = m.view.Update(message)
@@ -227,6 +231,10 @@ func (m *Model) replaceErrors(values []pulse.SourceError, sources ...string) {
 }
 
 func (m *Model) syncView() {
+	m.syncViewAt(m.now())
+}
+
+func (m *Model) syncViewAt(now time.Time) {
 	y := m.view.YOffset()
 	m.view.SetWidth(m.width)
 	m.view.SetHeight(m.height)
@@ -237,7 +245,7 @@ func (m *Model) syncView() {
 	}
 	options := renderOptions{
 		width: m.width, height: m.height, mono: m.mono,
-		countdown: max(time.Duration(0), m.nextRefresh.Sub(m.now())),
+		countdown: max(time.Duration(0), m.nextRefresh.Sub(now)), now: now,
 	}
 	content := render(m.data, options)
 	if lipgloss.Height(content) > m.height {

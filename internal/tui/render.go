@@ -20,6 +20,7 @@ type renderOptions struct {
 	mono          bool
 	scrollable    bool
 	countdown     time.Duration
+	now           time.Time
 }
 
 func render(data pulse.Snapshot, options renderOptions) string {
@@ -28,7 +29,7 @@ func render(data pulse.Snapshot, options renderOptions) string {
 	sections := []string{
 		renderAggregate(data, width, s, options.countdown),
 	}
-	if context := renderContext(data, width, s); context != "" {
+	if context := renderContext(data, width, options.now, s); context != "" {
 		sections = append(sections, context)
 	}
 	sections = append(sections, renderComponents(data.Components, data.History.Components, width, s), renderFeed(data, width, options.height, s))
@@ -39,15 +40,11 @@ func render(data pulse.Snapshot, options renderOptions) string {
 	return lipgloss.PlaceHorizontal(options.width, lipgloss.Center, strings.Join(sections, "\n"))
 }
 
-func renderContext(data pulse.Snapshot, width int, s styles) string {
+func renderContext(data pulse.Snapshot, width int, now time.Time, s styles) string {
 	innerWidth := panelContentWidth(s, width)
 	lines := make([]string, 0, len(data.ActiveIncidents)+len(data.ActiveMaintenances))
 	for _, incident := range data.ActiveIncidents {
-		line := s.status(incident.State) + "  " + incident.Name + "  ·  " + strings.ToUpper(incident.Status)
-		if incident.LatestUpdate != nil && incident.LatestUpdate.Body != "" {
-			line += "  " + s.muted.Render("— "+truncate(incident.LatestUpdate.Body, innerWidth/2))
-		}
-		lines = append(lines, truncate(line, innerWidth))
+		lines = append(lines, renderIncident(incident, innerWidth, now, s))
 	}
 	for _, maintenance := range data.ActiveMaintenances {
 		line := s.status(pulse.Maintenance) + "  " + maintenance.Name + "  ·  " + strings.ToUpper(maintenance.Status)
@@ -61,6 +58,31 @@ func renderContext(data pulse.Snapshot, width int, s styles) string {
 	}
 	body := s.title.Render("ACTIVE CONTEXT") + "\n\n" + strings.Join(lines, "\n")
 	return s.panel(width).Render(body)
+}
+
+func renderIncident(incident pulse.Incident, width int, now time.Time, s styles) string {
+	prefix := s.status(incident.State) + "  "
+	suffix := "  ·  " + strings.ToUpper(incident.Status)
+	if incident.StartedAt != nil {
+		suffix += "  ·  " + s.incidentAge(now.Sub(*incident.StartedAt))
+	}
+
+	nameWidth := width - ansi.StringWidth(prefix) - ansi.StringWidth(suffix)
+	core := prefix + suffix
+	if nameWidth > 0 {
+		core = prefix + truncate(incident.Name, nameWidth) + suffix
+	}
+	core = truncate(core, width)
+	if incident.LatestUpdate == nil || incident.LatestUpdate.Body == "" {
+		return core
+	}
+
+	updatePrefix := "  " + s.muted.Render("— ")
+	updateWidth := width - ansi.StringWidth(core) - ansi.StringWidth(updatePrefix)
+	if updateWidth <= 0 {
+		return core
+	}
+	return core + updatePrefix + s.muted.Render(truncate(incident.LatestUpdate.Body, updateWidth))
 }
 
 func maintenanceBounds(value pulse.MaintenanceWindow, s styles) string {
@@ -157,6 +179,24 @@ func renderSourceIssues(errors []pulse.SourceError, width int, s styles) string 
 func formatCountdown(remaining time.Duration) string {
 	seconds := max(0, int((remaining+time.Second-1)/time.Second))
 	return fmt.Sprintf("%02d:%02d", seconds/60, seconds%60)
+}
+
+func formatElapsed(elapsed time.Duration) string {
+	minutes := max(int64(0), int64(elapsed/time.Minute))
+	days := minutes / (24 * 60)
+	hours := minutes / 60 % 24
+	minutes %= 60
+	parts := make([]string, 0, 3)
+	if days > 0 {
+		parts = append(parts, fmt.Sprintf("%dd", days))
+	}
+	if hours > 0 {
+		parts = append(parts, fmt.Sprintf("%dh", hours))
+	}
+	if minutes > 0 || len(parts) == 0 {
+		parts = append(parts, fmt.Sprintf("%dm", minutes))
+	}
+	return strings.Join(parts, " ")
 }
 
 func formatDate(value time.Time) string {
