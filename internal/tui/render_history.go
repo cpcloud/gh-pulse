@@ -25,7 +25,7 @@ func renderAggregate(data pulse.Snapshot, width int, s styles, countdown time.Du
 	status, compactStatus := "", ""
 	if state != pulse.Operational {
 		status = "  " + s.state(state).Bold(true).Render(strings.ToUpper(stateDescription(state)))
-		compactStatus = " " + s.state(state).Bold(true).Render(stateLabel(state))
+		compactStatus = " " + s.state(state).Bold(true).Render(compactHeaderStateLabel(state))
 	}
 	headerLeft := title + status
 	if data.Sources.History.Available {
@@ -55,6 +55,17 @@ func renderAggregate(data pulse.Snapshot, width int, s styles, countdown time.Du
 		return s.panel(width).Render(header + "\n\n" + s.muted.Render("Reconstructed history unavailable"))
 	}
 	return s.panel(width).Render(header + "\n" + renderCombinedHistory(data.History, innerWidth, s))
+}
+
+func compactHeaderStateLabel(state pulse.State) string {
+	switch state {
+	case pulse.Minor:
+		return "MINOR"
+	case pulse.Major:
+		return "MAJOR"
+	default:
+		return stateLabel(state)
+	}
 }
 
 func renderHeaderMetrics(history pulse.History, state pulse.State, s styles) string {
