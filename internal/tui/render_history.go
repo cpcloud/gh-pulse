@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/cpcloud/gh-pulse/internal/pulse"
 )
 
@@ -20,26 +21,36 @@ func renderAggregate(data pulse.Snapshot, width int, s styles, countdown time.Du
 	if state == "" {
 		state = pulse.Unknown
 	}
-	headerLeft := s.title.Render("GITHUB PULSE")
+	title := s.title.Render("GITHUB PULSE")
+	status, compactStatus := "", ""
 	if state != pulse.Operational {
-		headerLeft += "  " + s.state(state).Bold(true).Render(strings.ToUpper(stateDescription(state)))
+		status = "  " + s.state(state).Bold(true).Render(strings.ToUpper(stateDescription(state)))
+		compactStatus = " " + s.state(state).Bold(true).Render(stateLabel(state))
 	}
-	compact := innerWidth < 100 || state != pulse.Operational
+	headerLeft := title + status
 	if data.Sources.History.Available {
 		headerLeft += " " + renderHeaderMetrics(data.History, state, s)
 	}
 	refresh := "↻ " + formatCountdown(countdown)
+	compactRefresh, narrowRefresh := refresh, refresh
 	if data.Overall.UpdatedAt != nil {
-		if compact {
-			refresh = s.timestamp(*data.Overall.UpdatedAt, "15:04 MST") + "  ·  " + refresh
-		} else {
-			refresh = "UPDATED " + s.timestamp(*data.Overall.UpdatedAt, "15:04 MST") + "  ·  " + refresh
+		timestamp := s.timestamp(*data.Overall.UpdatedAt, "15:04 MST")
+		compactRefresh = timestamp + "  ·  " + refresh
+		narrowRefresh = timestamp + " " + refresh
+		refresh = "UPDATED " + compactRefresh
+	}
+	if ansi.StringWidth(headerLeft)+ansi.StringWidth(refresh)+1 > innerWidth {
+		headerLeft = title + status
+		if data.Sources.History.Available {
+			headerLeft += " " + renderCondensedHeaderMetrics(data.History, state, s)
 		}
+		refresh = compactRefresh
+	}
+	if ansi.StringWidth(headerLeft)+ansi.StringWidth(refresh)+1 > innerWidth && data.Sources.History.Available {
+		headerLeft = title + compactStatus + " " + renderCompactHeaderMetrics(data.History, state, s)
+		refresh = narrowRefresh
 	}
 	header := between(headerLeft, s.muted.Render(refresh), innerWidth)
-	if compact && data.Sources.History.Available {
-		header = truncate(headerLeft, innerWidth) + "\n" + lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Right).Render(s.muted.Render(refresh))
-	}
 	if !data.Sources.History.Available {
 		return s.panel(width).Render(header + "\n\n" + s.muted.Render("Reconstructed history unavailable"))
 	}
@@ -60,6 +71,37 @@ func renderHeaderMetrics(history pulse.History, state pulse.State, s styles) str
 	}
 	separator := s.muted.Render("│")
 	return separator + " " + s.title.Render("90D UPTIME") + " " + s.heroMetric(state).Render(uptime) + " " + separator + " " + s.title.Render("ALL TIME UPTIME") + " " + s.state(state).Bold(true).Render(tracked) + coverage
+}
+
+func renderCondensedHeaderMetrics(history pulse.History, state pulse.State, s styles) string {
+	uptime, tracked := "--", "--"
+	if history.Uptime90Days != nil {
+		uptime = fmt.Sprintf("%.2f%%", *history.Uptime90Days)
+	}
+	if history.TrackedUptime != nil {
+		tracked = fmt.Sprintf("%.2f%%", *history.TrackedUptime)
+	}
+	coverage := ""
+	if !history.CoverageStart.IsZero() {
+		coverage = " " + s.muted.Render(fmt.Sprintf("SINCE %d", history.CoverageStart.Year()))
+	}
+	separator := s.muted.Render("│")
+	return separator + " " + s.title.Render("90D UPTIME") + " " + s.heroMetric(state).Render(uptime) + " " + separator + " " + s.title.Render("ALL TIME") + " " + s.state(state).Bold(true).Render(tracked) + coverage
+}
+
+func renderCompactHeaderMetrics(history pulse.History, state pulse.State, s styles) string {
+	uptime, tracked := "--", "--"
+	if history.Uptime90Days != nil {
+		uptime = fmt.Sprintf("%.2f%%", *history.Uptime90Days)
+	}
+	if history.TrackedUptime != nil {
+		tracked = fmt.Sprintf("%.2f%%", *history.TrackedUptime)
+	}
+	coverage := ""
+	if !history.CoverageStart.IsZero() {
+		coverage = " " + s.muted.Render("SINCE '"+history.CoverageStart.Format("06"))
+	}
+	return s.title.Render("90D") + " " + s.state(state).Bold(true).Render(uptime) + " " + s.title.Render("ALL") + " " + s.state(state).Bold(true).Render(tracked) + coverage
 }
 
 func renderCombinedHistory(history pulse.History, width int, s styles) string {
