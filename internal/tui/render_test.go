@@ -6,6 +6,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -58,7 +59,6 @@ func TestRenderAt80ColumnsKeepsAggregateAndMonochromeSignals(t *testing.T) {
 	assert.NotContains(t, plain, ".m!#X")
 	assert.Equal(t, 1, strings.Count(plain, "GITHUB PULSE"))
 	assert.NotContains(t, plain, "PLATFORM UPTIME")
-	assert.Contains(t, plain, "GITHUB PULSE │ 90D UPTIME  99.95%  │ ALL TIME UPTIME 100.00% SINCE 2022")
 }
 
 func TestRenderAggregateUsesOneHumanAppHeader(t *testing.T) {
@@ -79,11 +79,13 @@ func TestRenderAggregateColorsUptimeBadgeFromLiveState(t *testing.T) {
 	t.Parallel()
 	data := fixtureSnapshot(t)
 	data.Overall.State = pulse.Major
+	s := newStyles(false)
+	s.location = time.UTC
 
-	output := renderAggregate(data, 116, newStyles(false), 42*time.Second)
+	output := renderAggregate(data, 116, s, 42*time.Second)
 
-	assert.Contains(t, output, newStyles(false).heroMetric(pulse.Major).Render("99.95%"))
-	assert.Contains(t, output, newStyles(false).state(pulse.Major).Bold(true).Render("100.00%"))
+	assert.Contains(t, output, s.heroMetric(pulse.Major).Render("99.95%"))
+	assert.Contains(t, output, s.state(pulse.Major).Bold(true).Render("100.00%"))
 	assert.Contains(t, ansi.Strip(output), "MAJOR SERVICE DISRUPTION")
 	assert.NotContains(t, ansi.Strip(output), "●")
 }
@@ -329,6 +331,57 @@ func TestRenderKeepsUptimeMetricProminentUnderAppHeader(t *testing.T) {
 	assert.Regexp(t, `90D UPTIME +[0-9]+\.[0-9]{2}%`, lines[header])
 	assert.Regexp(t, `ALL TIME UPTIME +[0-9]+\.[0-9]{2}% SINCE 2022`, lines[header])
 	assert.NotContains(t, lines[header], "UPTIME:")
+}
+
+func TestRenderKeepsCriticalHeaderOnOneRowAtSupportedWidths(t *testing.T) {
+	t.Parallel()
+	data := fixtureSnapshot(t)
+	data.Overall.State = pulse.Critical
+
+	for _, width := range []int{80, 120, 200} {
+		t.Run(fmt.Sprintf("%d columns", width), func(t *testing.T) {
+			plain := ansi.Strip(render(data, renderOptions{width: width, height: 50, mono: true, countdown: 49 * time.Second}))
+			lines := strings.Split(plain, "\n")
+			headerLine := lineIndexContaining(lines, "GITHUB PULSE")
+			refreshLine := lineIndexContaining(lines, "↻ 00:49")
+
+			require.GreaterOrEqual(t, headerLine, 0)
+			require.GreaterOrEqual(t, refreshLine, 0)
+			require.Equal(t, headerLine, refreshLine)
+			header := lines[headerLine]
+			assert.Contains(t, header, "OUTAGE")
+			assert.Contains(t, header, "90D")
+			assert.Contains(t, header, "99.95%")
+			assert.Contains(t, header, "ALL")
+			assert.Contains(t, header, "100.00%")
+			assert.Regexp(t, `SINCE (2022|'22)`, header)
+			assert.Regexp(t, `[0-9]{2}:[0-9]{2} ([A-Z]+|[+-][0-9]{4})`, header)
+		})
+	}
+}
+
+func TestRenderAggregateKeepsWorstCaseCompactHeaderComplete(t *testing.T) {
+	t.Parallel()
+	data := fixtureSnapshot(t)
+	data.Overall.State = pulse.Minor
+	percent := 100.0
+	data.History.Uptime90Days = &percent
+	data.History.TrackedUptime = &percent
+	s := newStyles(true)
+	s.location = time.FixedZone("CEST", 2*60*60)
+
+	plain := ansi.Strip(renderAggregate(data, 76, s, 49*time.Second))
+	lines := strings.Split(plain, "\n")
+	headerLine := lineIndexContaining(lines, "GITHUB PULSE")
+	refreshLine := lineIndexContaining(lines, "↻ 00:49")
+	require.GreaterOrEqual(t, headerLine, 0)
+	require.Equal(t, headerLine, refreshLine)
+	header := lines[headerLine]
+	assert.Regexp(t, `(DEGRADED|MINOR)`, header)
+	assert.Equal(t, 2, strings.Count(header, "100.00%"))
+	assert.Regexp(t, `SINCE (2022|'22)`, header)
+	assert.Contains(t, header, "16:00 CEST")
+	assert.NotContains(t, header, "…")
 }
 
 func TestRenderFeedDensityFollowsAvailableTerminalHeight(t *testing.T) {

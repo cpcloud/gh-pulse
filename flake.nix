@@ -16,15 +16,28 @@
         "aarch64-darwin"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
+      goFor =
+        pkgs:
+        pkgs.go.overrideAttrs {
+          version = "1.26.6";
+          src = pkgs.fetchurl {
+            url = "https://go.dev/dl/go1.26.6.src.tar.gz";
+            hash = "sha256-oHIcVMaIkBRI13rZs+x+p8R0cwdV/4kTgukuy5P/LLE=";
+          };
+        };
     in
     {
       packages = forAllSystems (
         system:
         let
           pkgs = import nixpkgs { inherit system; };
+          go = goFor pkgs;
+          buildGoModule = pkgs.callPackage "${nixpkgs}/pkgs/build-support/go/module.nix" {
+            inherit go;
+          };
         in
         rec {
-          gh-pulse = pkgs.buildGoModule (finalAttrs: {
+          gh-pulse = buildGoModule (finalAttrs: {
             pname = "gh-pulse";
             version = "0.1.0";
 
@@ -61,6 +74,7 @@
         system:
         let
           pkgs = import nixpkgs { inherit system; };
+          go = goFor pkgs;
           vhsFontsConf = pkgs.makeFontsConf {
             fontDirectories = [ "${pkgs.nerd-fonts.hack}/share/fonts/truetype" ];
           };
@@ -70,7 +84,7 @@
             packages = [
               pkgs.actionlint
               pkgs.ffmpeg-headless
-              pkgs.go
+              go
               pkgs.golangci-lint
               pkgs.goreleaser
               pkgs.gopls
