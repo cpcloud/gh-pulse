@@ -27,6 +27,7 @@ func TestClientDecodesStructuredAtomFieldsNewestFirst(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, got.Entries, 2)
 	assert.Equal(t, "New incident", got.Entries[0].Title)
+	assert.Equal(t, "<p>Unstructured status HTML</p>", got.Entries[0].ContentHTML)
 	require.NotNil(t, got.Entries[0].URL)
 	assert.Equal(t, "https://www.githubstatus.com/incidents/new", *got.Entries[0].URL)
 	assert.Nil(t, got.Entries[1].URL)

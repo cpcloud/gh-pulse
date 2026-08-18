@@ -26,7 +26,7 @@ func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("closed o
 
 func TestRunJSONEmitsStableDocumentWithoutTerminalProse(t *testing.T) {
 	t.Parallel()
-	value := pulse.Snapshot{SchemaVersion: 1, Overall: pulse.Overall{State: pulse.Operational}, Components: []pulse.Component{}, ActiveIncidents: []pulse.Incident{}, ActiveMaintenances: []pulse.MaintenanceWindow{}, RecentFeed: []pulse.FeedEntry{}, Errors: []pulse.SourceError{}}
+	value := pulse.Snapshot{SchemaVersion: 1, Overall: pulse.Overall{State: pulse.Operational}, Components: []pulse.Component{}, ActiveIncidents: []pulse.Incident{}, ActiveMaintenances: []pulse.MaintenanceWindow{}, RecentFeed: []pulse.FeedEntry{{ContentHTML: "internal presentation body"}}, Errors: []pulse.SourceError{}}
 	var stdout, stderr bytes.Buffer
 	exit := Run(context.Background(), []string{"--json"}, &stdout, &stderr, "test", fetchStub{value}, func() error { return nil })
 	assert.Zero(t, exit)
@@ -35,6 +35,7 @@ func TestRunJSONEmitsStableDocumentWithoutTerminalProse(t *testing.T) {
 	require.NoError(t, json.Unmarshal(stdout.Bytes(), &decoded))
 	assert.InDelta(t, 1, decoded["schema_version"], 0)
 	assert.NotContains(t, stdout.String(), "\x1b[")
+	assert.NotContains(t, stdout.String(), "internal presentation body")
 }
 
 func TestRunJSONExitsNonzeroWhenCurrentSourceFailed(t *testing.T) {
@@ -78,5 +79,7 @@ func TestRunHelpOnlyListsSupportedKeys(t *testing.T) {
 	assert.Empty(t, stderr.String())
 	assert.Contains(t, stdout.String(), "q to quit")
 	assert.Contains(t, stdout.String(), "r to refresh")
+	assert.Contains(t, stdout.String(), "Enter to view status details")
+	assert.Contains(t, stdout.String(), "up/down arrows to select status history")
 	assert.NotContains(t, stdout.String(), "Tab")
 }

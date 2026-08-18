@@ -21,6 +21,7 @@ type styles struct {
 	mono         bool
 	location     *time.Location
 	title, muted lipgloss.Style
+	selected     lipgloss.Style
 }
 
 func newStyles(mono bool) styles {
@@ -29,10 +30,15 @@ func newStyles(mono bool) styles {
 		location: time.Local,
 		title:    lipgloss.NewStyle().Bold(true),
 		muted:    lipgloss.NewStyle().Faint(true),
+		selected: lipgloss.NewStyle().Bold(true).Reverse(true),
 	}
 	if !mono {
 		base.title = base.title.Foreground(lipgloss.Color(colorText))
 		base.muted = base.muted.Foreground(lipgloss.Color(colorMuted))
+		base.selected = base.selected.
+			Foreground(lipgloss.Color(colorText)).
+			Background(lipgloss.Color(colorBorder)).
+			Reverse(false)
 	}
 	return base
 }

@@ -62,7 +62,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, version s
 		}
 		return 0
 	case "--help", "-h":
-		_, _ = fmt.Fprintln(stdout, "Usage: gh pulse [--json]\n\nShow GitHub service health. Press q to quit or r to refresh.")
+		_, _ = fmt.Fprintln(stdout, "Usage: gh pulse [--json]\n\nShow GitHub service health. Use up/down arrows to select status history, Enter to view status details, r to refresh, or q to quit.")
 		return 0
 	case "--version":
 		_, _ = fmt.Fprintf(stdout, "gh-pulse %s\n", version)

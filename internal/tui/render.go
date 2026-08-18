@@ -7,6 +7,7 @@ package tui
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -19,9 +20,14 @@ type renderOptions struct {
 	width, height int
 	mono          bool
 	scrollable    bool
+	selectedFeed  int
+	feedOffset    int
 	countdown     time.Duration
 	now           time.Time
+	detailOpen    bool
 }
+
+var osc8SequencePattern = regexp.MustCompile(`\x1b\]8;[^;\x07]*;[^\x07]*\x07`)
 
 func render(data pulse.Snapshot, options renderOptions) string {
 	width := min(max(options.width-4, 36), 140)
@@ -32,11 +38,14 @@ func render(data pulse.Snapshot, options renderOptions) string {
 	if context := renderContext(data, width, options.now, s); context != "" {
 		sections = append(sections, context)
 	}
-	sections = append(sections, renderComponents(data.Components, data.History.Components, width, s), renderFeed(data, width, options.height, s))
+	sections = append(sections, renderComponents(data.Components, data.History.Components, width, s), renderFeed(data, width, options.height, options.selectedFeed, options.feedOffset, s))
 	if issues := renderSourceIssues(data.Errors, width, s); issues != "" {
 		sections = append(sections, issues)
 	}
-	sections = append(sections, renderFooter(width, s, options.scrollable))
+	if !options.detailOpen {
+		canViewDetails := data.Sources.Feed.Available && len(data.RecentFeed) > 0
+		sections = append(sections, renderFooter(width, s, options.scrollable, canViewDetails))
+	}
 	return lipgloss.PlaceHorizontal(options.width, lipgloss.Center, strings.Join(sections, "\n"))
 }
 
@@ -106,47 +115,98 @@ func maintenanceBounds(value pulse.MaintenanceWindow, s styles) string {
 	}
 }
 
-func renderFeed(data pulse.Snapshot, width, terminalHeight int, s styles) string {
+func renderFeed(data pulse.Snapshot, width, terminalHeight, selected, offset int, s styles) string {
 	innerWidth := panelContentWidth(s, width)
 	header := s.title.Render("STATUS HISTORY")
 	if !data.Sources.Feed.Available {
 		return s.panel(width).Render(header + "\n\n" + s.muted.Render("Feed unavailable"))
 	}
-	limit := 3
-	if innerWidth < 96 || terminalHeight < 32 {
-		limit = 1
+	limit := feedEntryLimit(innerWidth, terminalHeight)
+	start, end := feedWindow(len(data.RecentFeed), selected, offset, limit)
+	if start == end {
+		return s.panel(width).Render(header + "\n\n" + s.muted.Render("No recent entries"))
 	}
-	lines := make([]string, 0, limit)
-	for _, entry := range data.RecentFeed[:min(limit, len(data.RecentFeed))] {
-		stamp := s.muted.Render(s.timestamp(entry.UpdatedAt, "2006-01-02 15:04 MST"))
-		title := truncate(entry.Title, max(1, innerWidth-ansi.StringWidth(stamp)-2))
+
+	lines := make([]string, 0, end-start)
+	for index, entry := range data.RecentFeed[start:end] {
+		stampText := s.timestamp(entry.UpdatedAt, "2006-01-02 15:04 MST")
+		stamp := s.muted.Render(stampText)
+		title := truncate(stripUnsafeTerminalLine(entry.Title), max(1, innerWidth-ansi.StringWidth(stampText)-4))
 		if entry.URL != nil {
 			title = terminalLink(title, *entry.URL)
 		}
-		lines = append(lines, stamp+"  "+title)
-	}
-	if len(lines) == 0 {
-		lines = append(lines, s.muted.Render("No recent entries"))
+		line := "  " + stamp + "  " + title
+		if start+index == selected {
+			line = s.selected.Render("› " + stampText + "  " + title)
+		}
+		lines = append(lines, line)
 	}
 	return s.panel(width).Render(header + "\n\n" + strings.Join(lines, "\n"))
 }
 
-func terminalLink(label, target string) string {
-	if strings.ContainsAny(target, "\x00\x07\x1b") {
-		return label
+func feedWindow(total, selected, offset, limit int) (int, int) {
+	if total == 0 {
+		return 0, 0
 	}
-	parsed, err := url.ParseRequestURI(target)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+	selected = min(max(selected, 0), total-1)
+	limit = min(max(limit, 1), total)
+	offset = min(max(offset, 0), total-limit)
+	if selected < offset {
+		offset = selected
+	}
+	if selected >= offset+limit {
+		offset = selected - limit + 1
+	}
+	return offset, min(total, offset+limit)
+}
+
+func fitTableCell(value string, width int) string {
+	value = truncate(value, width)
+	return value + strings.Repeat(" ", max(0, width-ansi.StringWidth(value)))
+}
+
+func feedEntryLimit(innerWidth, terminalHeight int) int {
+	if innerWidth < 96 || terminalHeight < 32 {
+		return 1
+	}
+	return 3
+}
+
+func terminalLink(label, target string) string {
+	label = stripUnsafeTerminalLine(label)
+	if !safeHyperlinkTarget(target) {
 		return label
 	}
 	return ansi.SetHyperlink(target) + label + ansi.ResetHyperlink()
 }
 
-func renderFooter(width int, s styles, scrollable bool) string {
+func safeHyperlinkTarget(target string) bool {
+	if stripUnsafeTerminalLine(target) != target {
+		return false
+	}
+	parsed, err := url.ParseRequestURI(target)
+	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
+}
+
+func filterTerminalHyperlinks(value string) string {
+	return osc8SequencePattern.ReplaceAllStringFunc(value, func(sequence string) string {
+		payload := strings.TrimSuffix(strings.TrimPrefix(sequence, "\x1b]8;"), "\x07")
+		_, target, _ := strings.Cut(payload, ";")
+		if target == "" || safeHyperlinkTarget(target) {
+			return sequence
+		}
+		return ""
+	})
+}
+
+func renderFooter(width int, s styles, scrollable, canViewDetails bool) string {
 	innerWidth := panelContentWidth(s, width)
 	actions := []string{s.keycap("q") + " quit"}
 	if scrollable {
-		actions = append(actions, s.keycap("↑/↓")+" scroll")
+		actions = append(actions, s.keycap("j/k")+" scroll")
+	}
+	if canViewDetails {
+		actions = append(actions, s.keycap("↑/↓")+" select", s.keycap("Enter")+" open")
 	}
 	actions = append(actions, s.keycap("r")+" refresh")
 	keys := actions[0]
