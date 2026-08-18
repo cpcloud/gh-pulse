@@ -50,7 +50,7 @@
                 ./go.sum
               ];
             };
-            vendorHash = "sha256-A2RV8e62VAaSFgxIzLhKXWcv785tvJiNRJ2wUal6n/I=";
+            vendorHash = "sha256-pOZoAr9wPF8ejPwnHxvCUuj/aapu4vG0OWi/azzJJRY=";
             subPackages = [ "cmd/gh-pulse" ];
             dontStrip = true;
 

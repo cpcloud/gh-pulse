@@ -6,6 +6,7 @@ package tui
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/viewport"
@@ -26,6 +27,7 @@ type Fetcher interface {
 type Model struct {
 	fetcher     Fetcher
 	view        viewport.Model
+	detailView  viewport.Model
 	data        pulse.Snapshot
 	width       int
 	height      int
@@ -39,6 +41,10 @@ type Model struct {
 	nextRefresh time.Time
 	now         func() time.Time
 	errors      map[string]pulse.SourceError
+	detailOpen  bool
+	detailID    string
+	detailIndex int
+	feedOffset  int
 }
 
 type liveMsg struct {
@@ -54,7 +60,8 @@ type tickMsg time.Time
 func New(fetcher Fetcher, monochrome bool) *Model {
 	return &Model{
 		fetcher: fetcher, view: viewport.New(viewport.WithWidth(80), viewport.WithHeight(24)),
-		width: 80, height: 24, mono: monochrome, now: time.Now, errors: map[string]pulse.SourceError{},
+		detailView: viewport.New(viewport.WithWidth(68), viewport.WithHeight(12)),
+		width:      80, height: 24, mono: monochrome, now: time.Now, errors: map[string]pulse.SourceError{},
 	}
 }
 
@@ -105,25 +112,73 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := message.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(40, msg.Width), max(10, msg.Height)
+		m.reconcileDetail()
 		m.syncView()
 	case tea.KeyPressMsg:
 		switch msg.String() {
-		case "q", "esc", "ctrl+c":
+		case "q", "ctrl+c":
 			m.cancelAll()
 			return m, tea.Quit
+		case "esc":
+			if m.detailOpen {
+				m.closeDetail()
+				return m, nil
+			}
+			m.cancelAll()
+			return m, tea.Quit
+		case "enter":
+			if !m.detailOpen {
+				m.openDetail(m.detailIndex)
+			}
+		case "left":
+			if m.detailOpen {
+				m.pageDetail(-1)
+			}
+		case "right":
+			if m.detailOpen {
+				m.pageDetail(1)
+			}
+		case "up":
+			if m.detailOpen {
+				m.detailView.ScrollUp(1)
+			} else {
+				m.selectDetail(m.detailIndex - 1)
+			}
+		case "down":
+			if m.detailOpen {
+				m.detailView.ScrollDown(1)
+			} else {
+				m.selectDetail(m.detailIndex + 1)
+			}
 		case "r":
 			now := m.now()
 			m.nextRefresh = now.Add(refreshEvery)
 			refresh := m.startFullRefresh()
 			return m, refresh
-		case "j", "down":
-			m.view.ScrollDown(1)
-		case "k", "up":
-			m.view.ScrollUp(1)
+		case "j":
+			if m.detailOpen {
+				m.detailView.ScrollDown(1)
+			} else {
+				m.view.ScrollDown(1)
+			}
+		case "k":
+			if m.detailOpen {
+				m.detailView.ScrollUp(1)
+			} else {
+				m.view.ScrollUp(1)
+			}
 		case "pgdown":
-			m.view.PageDown()
+			if m.detailOpen {
+				m.detailView.PageDown()
+			} else {
+				m.view.PageDown()
+			}
 		case "pgup":
-			m.view.PageUp()
+			if m.detailOpen {
+				m.detailView.PageUp()
+			} else {
+				m.view.PageUp()
+			}
 		}
 	case tickMsg:
 		now := time.Time(msg)
@@ -131,7 +186,9 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			m.nextRefresh = now.Add(refreshEvery)
 		}
 		if now.Before(m.nextRefresh) {
-			m.syncViewAt(now)
+			if !m.detailOpen {
+				m.syncViewAt(now)
+			}
 			return m, tick()
 		}
 		m.nextRefresh = now.Add(refreshEvery)
@@ -167,7 +224,28 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) View() tea.View {
-	view := tea.NewView(m.view.View())
+	content := m.view.View()
+	if entry, index, total, ok := m.detailEntry(); ok {
+		s := newStyles(m.mono)
+		overlay := renderEntryDetail(entry, index, total, detailRenderOptions{
+			width: m.width, height: m.height, mono: m.mono, view: &m.detailView,
+		})
+		x := max(0, (m.width-lipgloss.Width(overlay))/2)
+		y := max(0, (m.height-1-lipgloss.Height(overlay))/2)
+		dashboardWidth := min(max(m.width-4, 36), 140)
+		globalFooter := renderFooter(dashboardWidth, s, false, false)
+		footerX := max(0, (m.width-lipgloss.Width(globalFooter))/2)
+		footerY := y + lipgloss.Height(overlay)
+		footerBackdrop := strings.Repeat(" ", m.width)
+		layers := lipgloss.NewCompositor(
+			lipgloss.NewLayer(content),
+			lipgloss.NewLayer(overlay).X(x).Y(y).Z(1),
+			lipgloss.NewLayer(footerBackdrop).Y(footerY).Z(2),
+			lipgloss.NewLayer(globalFooter).X(footerX).Y(footerY).Z(3),
+		)
+		content = lipgloss.NewCanvas(m.width, m.height).Compose(layers).Render()
+	}
+	view := tea.NewView(content)
 	view.AltScreen = true
 	view.WindowTitle = "GitHub Pulse"
 	return view
@@ -203,6 +281,7 @@ func (m *Model) mergeLive(next pulse.Snapshot) {
 	}
 	if next.Sources.Feed.Available || !m.data.Sources.Feed.Available {
 		m.data.RecentFeed, m.data.Sources.Feed = next.RecentFeed, next.Sources.Feed
+		m.reconcileDetail()
 	}
 	m.data.GeneratedAt = next.GeneratedAt
 	m.replaceErrors(next.Errors, "current", "feed")
@@ -235,6 +314,7 @@ func (m *Model) syncView() {
 }
 
 func (m *Model) syncViewAt(now time.Time) {
+	m.reconcileDetail()
 	y := m.view.YOffset()
 	m.view.SetWidth(m.width)
 	m.view.SetHeight(m.height)
@@ -245,7 +325,11 @@ func (m *Model) syncViewAt(now time.Time) {
 	}
 	options := renderOptions{
 		width: m.width, height: m.height, mono: m.mono,
-		countdown: max(time.Duration(0), m.nextRefresh.Sub(now)), now: now,
+		selectedFeed: m.detailIndex,
+		feedOffset:   m.feedOffset,
+		countdown:    max(time.Duration(0), m.nextRefresh.Sub(now)),
+		now:          now,
+		detailOpen:   m.detailOpen,
 	}
 	content := render(m.data, options)
 	if lipgloss.Height(content) > m.height {
@@ -255,4 +339,108 @@ func (m *Model) syncViewAt(now time.Time) {
 	content = lipgloss.PlaceVertical(m.height, lipgloss.Center, content)
 	m.view.SetContent(content)
 	m.view.SetYOffset(y)
+	m.syncDetailView()
+}
+
+func (m *Model) syncDetailView() {
+	entry, _, _, ok := m.detailEntry()
+	if !ok {
+		return
+	}
+	layout := entryDetailLayout(m.width, m.height, newStyles(m.mono))
+	configureDetailView(&m.detailView, entry, layout, m.mono, newStyles(m.mono))
+}
+
+func (m *Model) syncFeedOffset() {
+	width := min(max(m.width-4, 36), 140)
+	s := newStyles(m.mono)
+	now := m.now()
+	landing := renderLandingSections(
+		m.data, width, max(time.Duration(0), m.nextRefresh.Sub(now)), now, false, s,
+	)
+	fixedSections := make([]string, 0, len(landing.beforeFeed)+len(landing.afterFeed)+1)
+	fixedSections = append(fixedSections, landing.beforeFeed...)
+	fixedSections = append(fixedSections, landing.afterFeed...)
+	fixedSections = append(fixedSections, landing.footer)
+	limit := feedEntryLimit(m.width, m.height, width, fixedSections, s)
+	m.feedOffset, _ = feedWindow(len(m.data.RecentFeed), m.detailIndex, m.feedOffset, limit)
+}
+
+func (m *Model) detailEntry() (pulse.FeedEntry, int, int, bool) {
+	if !m.detailOpen {
+		return pulse.FeedEntry{}, 0, 0, false
+	}
+	entries := m.data.RecentFeed
+	if m.detailIndex < 0 || m.detailIndex >= len(entries) {
+		return pulse.FeedEntry{}, 0, 0, false
+	}
+	return entries[m.detailIndex], m.detailIndex, len(entries), true
+}
+
+func (m *Model) openDetail(index int) {
+	entries := m.data.RecentFeed
+	if index < 0 || index >= len(entries) {
+		return
+	}
+	m.detailOpen = true
+	m.detailIndex = index
+	m.detailID = entries[index].ID
+	m.detailView.GotoTop()
+	m.syncView()
+}
+
+func (m *Model) selectDetail(index int) {
+	entries := m.data.RecentFeed
+	if index < 0 || index >= len(entries) {
+		return
+	}
+	m.detailIndex = index
+	m.detailID = entries[index].ID
+	m.syncFeedOffset()
+	m.syncView()
+	m.view.GotoBottom()
+}
+
+func (m *Model) pageDetail(delta int) {
+	index := m.detailIndex + delta
+	if !m.detailOpen || index < 0 || index >= len(m.data.RecentFeed) {
+		return
+	}
+	m.detailIndex = index
+	m.detailID = m.data.RecentFeed[index].ID
+	m.detailView.GotoTop()
+	m.syncFeedOffset()
+	m.syncView()
+}
+
+func (m *Model) closeDetail() {
+	m.detailOpen = false
+	m.syncView()
+}
+
+func (m *Model) reconcileDetail() {
+	previousID := m.detailID
+	entries := m.data.RecentFeed
+	if len(entries) == 0 {
+		m.detailOpen = false
+		m.detailID = ""
+		m.detailIndex = 0
+		m.feedOffset = 0
+		return
+	}
+	if m.detailID != "" {
+		for index, entry := range entries {
+			if entry.ID == m.detailID {
+				m.detailIndex = index
+				m.syncFeedOffset()
+				return
+			}
+		}
+	}
+	m.detailIndex = 0
+	m.detailID = entries[0].ID
+	m.feedOffset = 0
+	if m.detailOpen && previousID != m.detailID {
+		m.detailView.GotoTop()
+	}
 }

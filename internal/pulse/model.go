@@ -130,6 +130,7 @@ type Current struct {
 type FeedEntry struct {
 	ID          string     `json:"id"`
 	Title       string     `json:"title"`
+	ContentHTML string     `json:"-"`
 	URL         *string    `json:"url"`
 	PublishedAt *time.Time `json:"published_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`

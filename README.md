@@ -59,8 +59,13 @@ nix run .#default
 | Key | Action |
 | --- | --- |
 | `r` | Refresh all sources in place |
-| `q`, `Esc` | Quit |
-| Arrow keys, `j`, `k` | Scroll when the dashboard does not fit |
+| Up and down arrows | Select a status-history entry on the dashboard; scroll inside details |
+| Left and right arrows | Open the previous or next status-history entry while viewing details |
+| `Enter` | Open the selected status-history entry in an overlay |
+| `j`, `k` | Scroll the current view |
+| `PgUp`, `PgDn` | Scroll the current view by a page |
+| `Esc` | Close details; quit from the dashboard |
+| `q` | Quit |
 
 The dashboard refreshes current status automatically. Reconstructed history is
 loaded at startup and refreshed only when you press `r`.

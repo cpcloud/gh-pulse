@@ -30,6 +30,7 @@ type atomFeed struct {
 type atomEntry struct {
 	ID        string     `xml:"id"`
 	Title     string     `xml:"title"`
+	Content   string     `xml:"content"`
 	Links     []atomLink `xml:"link"`
 	Published *time.Time `xml:"published"`
 	Updated   time.Time  `xml:"updated"`
@@ -64,7 +65,7 @@ func (c *Client) Fetch(ctx context.Context) (pulse.Feed, error) {
 		}
 		published := utcPtr(entry.Published)
 		entries = append(entries, pulse.FeedEntry{
-			ID: entry.ID, Title: entry.Title, URL: url,
+			ID: entry.ID, Title: entry.Title, ContentHTML: entry.Content, URL: url,
 			PublishedAt: published, UpdatedAt: entry.Updated.UTC(),
 		})
 	}

@@ -50,6 +50,8 @@ func TestRenderAt80ColumnsKeepsAggregateAndMonochromeSignals(t *testing.T) {
 	assert.NotContains(t, plain, "OPERATIONAL │")
 	assert.Contains(t, plain, "API Requests")
 	assert.Contains(t, plain, "STATUS HISTORY")
+	assert.Contains(t, plain, "Enter")
+	assert.Contains(t, plain, "open")
 	assert.NotContains(t, plain, "ATOM FEED")
 	assert.Contains(t, plain, "CORE SERVICES")
 	assert.NotContains(t, plain, "[OK]")
@@ -494,29 +496,37 @@ func TestRenderAggregateKeepsWorstCaseCompactHeaderComplete(t *testing.T) {
 	assert.NotContains(t, header, "…")
 }
 
-func TestRenderFeedDensityFollowsAvailableTerminalHeight(t *testing.T) {
+func TestRenderFeedHonorsRowCapacity(t *testing.T) {
 	t.Parallel()
 	value := fixtureSnapshot(t)
 	value.RecentFeed = []pulse.FeedEntry{
 		{Title: "First incident", UpdatedAt: value.GeneratedAt},
 		{Title: "Second incident", UpdatedAt: value.GeneratedAt},
 		{Title: "Third incident", UpdatedAt: value.GeneratedAt},
+		{Title: "Fourth incident", UpdatedAt: value.GeneratedAt},
+		{Title: "Fifth incident", UpdatedAt: value.GeneratedAt},
+		{Title: "Sixth incident", UpdatedAt: value.GeneratedAt},
 	}
-	short := ansi.Strip(renderFeed(value, 140, 24, newStyles(true)))
-	tall := ansi.Strip(renderFeed(value, 116, 40, newStyles(true)))
+	short := ansi.Strip(renderFeed(value, 140, 1, 0, 0, newStyles(true)))
+	tall := ansi.Strip(renderFeed(value, 116, 5, 0, 0, newStyles(true)))
 	assert.Contains(t, short, "First incident")
 	assert.NotContains(t, short, "Second incident")
-	assert.Contains(t, tall, "First incident")
-	assert.Contains(t, tall, "Second incident")
-	assert.Contains(t, tall, "Third incident")
+	for _, title := range []string{"First incident", "Second incident", "Third incident", "Fourth incident", "Fifth incident"} {
+		assert.Contains(t, tall, title)
+	}
+	assert.NotContains(t, tall, "Sixth incident")
 }
 
 func TestRenderFeedReadsAsDatedHistory(t *testing.T) {
 	t.Parallel()
 	data := fixtureSnapshot(t)
+	data.RecentFeed = append(data.RecentFeed,
+		pulse.FeedEntry{Title: "Incident with Actions", UpdatedAt: data.RecentFeed[0].UpdatedAt.Add(-time.Hour)},
+		pulse.FeedEntry{Title: "Incident with Copilot", UpdatedAt: data.RecentFeed[0].UpdatedAt.Add(-2 * time.Hour)},
+	)
 	s := newStyles(true)
 	s.location = time.FixedZone("LOCAL", -4*60*60)
-	plain := ansi.Strip(renderFeed(data, 116, 40, s))
+	plain := ansi.Strip(renderFeed(data, 116, len(data.RecentFeed), 0, 0, s))
 	assert.Contains(t, plain, "STATUS HISTORY")
 	assert.Contains(t, plain, "2026-08-09 10:00 LOCAL")
 	assert.NotContains(t, plain, "●")
@@ -528,7 +538,7 @@ func TestRenderFeedLinksIncidentTitlesWhenDetailsURLExists(t *testing.T) {
 	target := "https://www.githubstatus.com/incidents/example"
 	data.RecentFeed[0].URL = &target
 
-	output := renderFeed(data, 116, 40, newStyles(true))
+	output := renderFeed(data, 116, len(data.RecentFeed), 0, 0, newStyles(true))
 
 	assert.Contains(t, output, ansi.SetHyperlink(target))
 	assert.Contains(t, output, "Incident with API Requests")
@@ -538,6 +548,23 @@ func TestRenderFeedLinksIncidentTitlesWhenDetailsURLExists(t *testing.T) {
 func TestTerminalLinkRejectsControlSequences(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, "incident", terminalLink("incident", "https://example.com/\x1b]8;;evil"))
+	assert.Equal(t, "incident", terminalLink("incident", "https://example.com/\u009cspoof"))
+	assert.Equal(t, "incident", terminalLink("incident", "https://example.com/\u202espoof"))
+	linked := terminalLink("incident\x1b\n\tspoof", "https://example.com/status")
+	assert.Equal(t, "incidentspoof", ansi.Strip(linked))
+	assert.NotContains(t, linked, "\x1bspoof")
+}
+
+func TestRenderFeedStripsControlsFromUnlinkedTitles(t *testing.T) {
+	t.Parallel()
+	data := fixtureSnapshot(t)
+	data.RecentFeed[0].Title = "incident\u009cspoof\u202e"
+
+	output := renderFeed(data, 116, len(data.RecentFeed), 0, 0, newStyles(true))
+
+	assert.Contains(t, output, "incidentspoof")
+	assert.NotContains(t, output, "\u009c")
+	assert.NotContains(t, output, "\u202e")
 }
 
 func TestRenderDoesNotWrapPanelMetadataIntoOrphanLines(t *testing.T) {
@@ -637,7 +664,7 @@ func TestRenderUsesComputerTimezoneForTimestamps(t *testing.T) {
 	s.location = time.FixedZone("LOCAL", -4*60*60)
 
 	assert.Contains(t, ansi.Strip(renderAggregate(data, 116, s, 42*time.Second)), "UPDATED 10:00 LOCAL")
-	assert.Contains(t, ansi.Strip(renderFeed(data, 116, 40, s)), "2026-08-09 10:00 LOCAL")
+	assert.Contains(t, ansi.Strip(renderFeed(data, 116, len(data.RecentFeed), 0, 0, s)), "2026-08-09 10:00 LOCAL")
 }
 
 func TestRenderAggregateShowsRefreshCountdown(t *testing.T) {
@@ -815,17 +842,21 @@ func TestModelAdvertisesScrollOnlyWhenContentOverflows(t *testing.T) {
 
 func TestRenderFooterKeepsScrollDiscoverableAtMinimumWidth(t *testing.T) {
 	t.Parallel()
-	footer := strings.Split(ansi.Strip(renderFooter(36, newStyles(true), true)), "\n")
+	footer := strings.Split(ansi.Strip(renderFooter(36, newStyles(true), true, true)), "\n")
 	require.NotEmpty(t, footer)
 	assert.Contains(t, footer[0], "scroll")
+	assert.Contains(t, footer[0], "j/k")
+	assert.NotContains(t, footer[0], "↑/↓ scroll")
 	assert.NotContains(t, footer[0], "…")
 }
 
 func TestRenderFooterContainsOnlyKeyboardShortcuts(t *testing.T) {
 	t.Parallel()
-	footer := ansi.Strip(renderFooter(116, newStyles(true), false))
+	footer := ansi.Strip(renderFooter(116, newStyles(true), false, true))
 	assert.Len(t, strings.Split(footer, "\n"), 1)
 	assert.Contains(t, footer, "quit")
+	assert.Contains(t, footer, "select")
+	assert.Contains(t, footer, "open")
 	assert.Contains(t, footer, "refresh")
 	assert.NotContains(t, footer, "range")
 	assert.NotContains(t, footer, "tab")
