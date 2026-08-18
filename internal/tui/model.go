@@ -6,6 +6,7 @@ package tui
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/viewport"
@@ -235,10 +236,12 @@ func (m *Model) View() tea.View {
 		globalFooter := renderFooter(dashboardWidth, s, false, false)
 		footerX := max(0, (m.width-lipgloss.Width(globalFooter))/2)
 		footerY := y + lipgloss.Height(overlay)
+		footerBackdrop := strings.Repeat(" ", m.width)
 		layers := lipgloss.NewCompositor(
 			lipgloss.NewLayer(content),
 			lipgloss.NewLayer(overlay).X(x).Y(y).Z(1),
-			lipgloss.NewLayer(globalFooter).X(footerX).Y(footerY).Z(2),
+			lipgloss.NewLayer(footerBackdrop).Y(footerY).Z(2),
+			lipgloss.NewLayer(globalFooter).X(footerX).Y(footerY).Z(3),
 		)
 		content = lipgloss.NewCanvas(m.width, m.height).Compose(layers).Render()
 	}
