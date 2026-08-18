@@ -144,6 +144,34 @@ func TestRenderEntryContentUsesReadableUpdateTable(t *testing.T) {
 	assert.Equal(t, strings.Index(headerRow, "DETAILS"), strings.Index(investigatingRow, "Engineers"))
 }
 
+func TestRenderEntryUpdateTableUsesStatusPageLifecycleColors(t *testing.T) {
+	t.Parallel()
+	styles := newStyles(false)
+	entry := pulse.FeedEntry{
+		ContentHTML: `<p>Aug 18, 11:55 UTC <strong>Resolved</strong> - Recovered.</p>` +
+			`<p>Aug 18, 11:40 UTC <strong>Monitoring</strong> - Watching recovery.</p>` +
+			`<p>Aug 18, 11:20 UTC <strong>Update</strong> - Mitigation in progress.</p>` +
+			`<p>Aug 18, 11:00 UTC <strong>Identified</strong> - Cause identified.</p>` +
+			`<p>Aug 18, 10:40 UTC <strong>Investigating</strong> - Investigation started.</p>`,
+		UpdatedAt: time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC),
+	}
+
+	output := renderEntryContent(entry, 116, false, styles)
+	statusWidth := len("Investigating")
+	for _, expected := range []struct {
+		label string
+		state pulse.State
+	}{
+		{label: "Resolved", state: pulse.Operational},
+		{label: "Monitoring", state: pulse.Maintenance},
+		{label: "Update", state: pulse.Minor},
+		{label: "Identified", state: pulse.Major},
+		{label: "Investigating", state: pulse.Critical},
+	} {
+		assert.Contains(t, output, styles.state(expected.state).Bold(true).Render(fitTableCell(expected.label, statusWidth)))
+	}
+}
+
 func TestModelSelectsDashboardEntryThenOpensOverlay(t *testing.T) {
 	t.Parallel()
 	model := detailModel(t, 120, 40)
@@ -165,17 +193,58 @@ func TestModelSelectsDashboardEntryThenOpensOverlay(t *testing.T) {
 	assert.Contains(t, plain, "2 OF 3")
 	assert.Contains(t, ansi.Strip(model.view.View()), "GITHUB PULSE")
 
-	updated, command = model.Update(tea.KeyPressMsg{Code: tea.KeyRight})
-	model = updated.(*Model)
-	require.Nil(t, command)
-	assert.Equal(t, "second", model.detailID)
-
 	updated, command = model.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	model = updated.(*Model)
 	require.Nil(t, command)
 	assert.False(t, model.detailOpen)
 	assert.Equal(t, "second", model.detailID)
 	assert.Contains(t, ansi.Strip(model.View().Content), "GITHUB PULSE")
+}
+
+func TestModelPagesStatusHistoryWhileOverlayOpen(t *testing.T) {
+	t.Parallel()
+	model := detailModel(t, 120, 40)
+	model.data.RecentFeed[0].ContentHTML = strings.Repeat("<p>Long first update</p>", 60)
+	model.syncView()
+
+	updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	model = updated.(*Model)
+	model.detailView.SetYOffset(5)
+	require.Equal(t, 5, model.detailView.YOffset())
+
+	updated, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	model = updated.(*Model)
+	assert.Equal(t, "second", model.detailID)
+	assert.Equal(t, 1, model.detailIndex)
+	assert.True(t, model.detailView.AtTop())
+	assert.Contains(t, ansi.Strip(model.View().Content), "Second incident body in full")
+	assert.Contains(t, ansi.Strip(model.View().Content), "2 OF 3")
+
+	updated, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	model = updated.(*Model)
+	assert.Equal(t, "first", model.detailID)
+	assert.Equal(t, 0, model.detailIndex)
+}
+
+func TestModelShowsScrollbarOnlyForOverflowingHistory(t *testing.T) {
+	t.Parallel()
+	longModel := detailModel(t, 80, 24)
+	longModel.data.RecentFeed[0].ContentHTML = strings.Repeat("<p>Scrollable update</p>", 60)
+	longModel.syncView()
+
+	updated, _ := longModel.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	longModel = updated.(*Model)
+	topRow := lineIndexContaining(strings.Split(ansi.Strip(longModel.View().Content), "\n"), "┃")
+	require.GreaterOrEqual(t, topRow, 0)
+
+	longModel.detailView.GotoBottom()
+	bottomRow := lineIndexContaining(strings.Split(ansi.Strip(longModel.View().Content), "\n"), "┃")
+	assert.Greater(t, bottomRow, topRow)
+
+	shortModel := detailModel(t, 80, 24)
+	updated, _ = shortModel.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	shortModel = updated.(*Model)
+	assert.NotContains(t, ansi.Strip(shortModel.View().Content), "┃")
 }
 
 func TestModelDashboardSelectionScrollsPastVisibleRows(t *testing.T) {
@@ -215,6 +284,30 @@ func TestModelStatusHistoryWindowFollowsSelection(t *testing.T) {
 	assert.Contains(t, plain, "Third incident title in full")
 	assert.Contains(t, plain, "Fourth incident title")
 	assert.NotContains(t, plain, "Fifth incident title")
+}
+
+func TestModelShowsLandingHistoryScrollbarOnlyWhenEntriesOverflow(t *testing.T) {
+	t.Parallel()
+	overflowing := detailModel(t, 120, 40)
+	overflowing.data.RecentFeed = append(overflowing.data.RecentFeed,
+		pulse.FeedEntry{ID: "fourth", Title: "Fourth incident", UpdatedAt: overflowing.data.GeneratedAt.Add(-3 * time.Minute)},
+		pulse.FeedEntry{ID: "fifth", Title: "Fifth incident", UpdatedAt: overflowing.data.GeneratedAt.Add(-4 * time.Minute)},
+	)
+	overflowing.syncView()
+	lines := strings.Split(ansi.Strip(overflowing.View().Content), "\n")
+	topRow := lineIndexContaining(lines, "┃")
+	require.GreaterOrEqual(t, topRow, 0)
+	assert.Contains(t, lines[topRow], "┃ │")
+
+	for range 3 {
+		updated, _ := overflowing.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+		overflowing = updated.(*Model)
+	}
+	shiftedRow := lineIndexContaining(strings.Split(ansi.Strip(overflowing.View().Content), "\n"), "┃")
+	assert.Greater(t, shiftedRow, topRow)
+
+	fitting := detailModel(t, 120, 40)
+	assert.NotContains(t, ansi.Strip(fitting.View().Content), "┃")
 }
 
 func TestModelHighlightsSelectedDashboardEntry(t *testing.T) {
@@ -323,6 +416,8 @@ func TestModelSeparatesGlobalAndViewerShortcuts(t *testing.T) {
 	require.NotEmpty(t, globalFooter)
 	assert.Contains(t, viewerFooter, "scroll")
 	assert.Contains(t, viewerFooter, "page")
+	assert.Contains(t, viewerFooter, "←/→")
+	assert.Contains(t, viewerFooter, "entry")
 	assert.NotContains(t, viewerFooter, "quit")
 	assert.NotContains(t, viewerFooter, "refresh")
 	assert.Contains(t, globalFooter, "quit")

@@ -12,6 +12,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	"charm.land/glamour/v2"
 	glamourstyles "charm.land/glamour/v2/styles"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/cpcloud/gh-pulse/internal/pulse"
 )
@@ -27,19 +28,41 @@ func renderEntryDetail(entry pulse.FeedEntry, index, total int, options detailRe
 	layout := entryDetailLayout(options.width, options.height, s)
 	detailView := options.view
 	if detailView == nil {
-		view := viewport.New(
-			viewport.WithWidth(layout.innerWidth),
-			viewport.WithHeight(layout.bodyHeight),
-		)
-		view.FillHeight = true
-		view.SetContent(renderEntryContent(entry, layout.innerWidth, options.mono, s))
+		view := viewport.New()
+		configureDetailView(&view, entry, layout, options.mono, s)
 		detailView = &view
+	}
+	scrollable := detailViewScrollable(detailView)
+	body := detailView.View()
+	if scrollable {
+		scrollbar := renderVerticalScrollbar(
+			detailView.Height(), detailView.TotalLineCount(), detailView.Height(), detailView.YOffset(), s,
+		)
+		body = lipgloss.JoinHorizontal(lipgloss.Top, body, " ", scrollbar)
 	}
 	header := between(s.title.Render("STATUS HISTORY"), s.muted.Render(fmt.Sprintf("%d OF %d", index+1, total)), layout.innerWidth)
 	rule := s.muted.Render(strings.Repeat("─", layout.innerWidth))
-	controls := renderDetailFooter(layout.innerWidth, s, !detailView.AtTop() || !detailView.AtBottom())
-	content := strings.Join([]string{header, rule, detailView.View(), rule, controls}, "\n")
+	controls := renderDetailFooter(layout.innerWidth, s, scrollable, total > 1)
+	content := strings.Join([]string{header, rule, body, rule, controls}, "\n")
 	return s.panel(layout.width).Height(layout.height).Render(content)
+}
+
+func configureDetailView(view *viewport.Model, entry pulse.FeedEntry, layout detailLayout, mono bool, s styles) {
+	offset := view.YOffset()
+	view.SetHeight(layout.bodyHeight)
+	view.FillHeight = true
+	view.SetWidth(layout.innerWidth)
+	view.SetContent(renderEntryContent(entry, layout.innerWidth, mono, s))
+	if detailViewScrollable(view) {
+		contentWidth := max(1, layout.innerWidth-2)
+		view.SetWidth(contentWidth)
+		view.SetContent(renderEntryContent(entry, contentWidth, mono, s))
+	}
+	view.SetYOffset(offset)
+}
+
+func detailViewScrollable(view *viewport.Model) bool {
+	return view.TotalLineCount() > view.Height()
 }
 
 type detailLayout struct {
@@ -140,7 +163,7 @@ func renderEntryUpdateTable(updates []entryUpdate, width int, s styles) (string,
 			when, status := "", ""
 			if lineIndex == 0 {
 				when = s.muted.Render(fitTableCell(s.timestamp(update.when, "Jan 2, 15:04 MST"), whenWidth))
-				status = s.title.Render(fitTableCell(update.status, statusWidth))
+				status = entryStatusStyle(update.status, s).Render(fitTableCell(update.status, statusWidth))
 			} else {
 				when = strings.Repeat(" ", whenWidth)
 				status = strings.Repeat(" ", statusWidth)
@@ -154,8 +177,28 @@ func renderEntryUpdateTable(updates []entryUpdate, width int, s styles) (string,
 	return strings.Join(lines, "\n"), true
 }
 
-func renderDetailFooter(width int, s styles, scrollable bool) string {
+func entryStatusStyle(status string, s styles) lipgloss.Style {
+	state := pulse.Unknown
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "resolved":
+		state = pulse.Operational
+	case "monitoring":
+		state = pulse.Maintenance
+	case "update":
+		state = pulse.Minor
+	case "identified":
+		state = pulse.Major
+	case "investigating":
+		state = pulse.Critical
+	}
+	return s.state(state).Bold(true)
+}
+
+func renderDetailFooter(width int, s styles, scrollable, pageable bool) string {
 	actions := []string{s.keycap("Esc") + " close"}
+	if pageable {
+		actions = append(actions, s.keycap("←/→")+" entry")
+	}
 	if scrollable {
 		actions = append(actions, s.keycap("↑/↓")+" scroll")
 		actions = append(actions, s.keycap("PgUp/PgDn")+" page")

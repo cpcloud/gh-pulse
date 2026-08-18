@@ -127,11 +127,16 @@ func renderFeed(data pulse.Snapshot, width, terminalHeight, selected, offset int
 		return s.panel(width).Render(header + "\n\n" + s.muted.Render("No recent entries"))
 	}
 
+	scrollable := len(data.RecentFeed) > end-start
+	contentWidth := innerWidth
+	if scrollable {
+		contentWidth = max(1, contentWidth-2)
+	}
 	lines := make([]string, 0, end-start)
 	for index, entry := range data.RecentFeed[start:end] {
 		stampText := s.timestamp(entry.UpdatedAt, "2006-01-02 15:04 MST")
 		stamp := s.muted.Render(stampText)
-		title := truncate(stripUnsafeTerminalLine(entry.Title), max(1, innerWidth-ansi.StringWidth(stampText)-4))
+		title := truncate(stripUnsafeTerminalLine(entry.Title), max(1, contentWidth-ansi.StringWidth(stampText)-4))
 		if entry.URL != nil {
 			title = terminalLink(title, *entry.URL)
 		}
@@ -139,9 +144,37 @@ func renderFeed(data pulse.Snapshot, width, terminalHeight, selected, offset int
 		if start+index == selected {
 			line = s.selected.Render("› " + stampText + "  " + title)
 		}
-		lines = append(lines, line)
+		lines = append(lines, lipgloss.NewStyle().Width(contentWidth).Render(line))
 	}
-	return s.panel(width).Render(header + "\n\n" + strings.Join(lines, "\n"))
+	history := strings.Join(lines, "\n")
+	if scrollable {
+		scrollbar := renderVerticalScrollbar(len(lines), len(data.RecentFeed), len(lines), start, s)
+		history = lipgloss.JoinHorizontal(lipgloss.Top, history, " ", scrollbar)
+	}
+	return s.panel(width).Render(header + "\n\n" + history)
+}
+
+func renderVerticalScrollbar(height, total, visible, offset int, s styles) string {
+	if height <= 0 || total <= visible {
+		return ""
+	}
+	visible = min(max(visible, 1), total)
+	thumbHeight := min(height, max(1, (height*visible+total-1)/total))
+	maxOffset := total - visible
+	offset = min(max(offset, 0), maxOffset)
+	thumbStart := 0
+	if available := height - thumbHeight; available > 0 {
+		thumbStart = (offset*available + maxOffset/2) / maxOffset
+	}
+	lines := make([]string, height)
+	for row := range height {
+		if row >= thumbStart && row < thumbStart+thumbHeight {
+			lines[row] = s.title.Render("┃")
+		} else {
+			lines[row] = s.muted.Render("│")
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func feedWindow(total, selected, offset, limit int) (int, int) {

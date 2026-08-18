@@ -60,6 +60,7 @@ nix run .#default
 | --- | --- |
 | `r` | Refresh all sources in place |
 | Up and down arrows | Select a status-history entry on the dashboard; scroll inside details |
+| Left and right arrows | Open the previous or next status-history entry while viewing details |
 | `Enter` | Open the selected status-history entry in an overlay |
 | `j`, `k` | Scroll the current view |
 | `PgUp`, `PgDn` | Scroll the current view by a page |

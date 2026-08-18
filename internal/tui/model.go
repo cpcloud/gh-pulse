@@ -129,6 +129,14 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.detailOpen {
 				m.openDetail(m.detailIndex)
 			}
+		case "left":
+			if m.detailOpen {
+				m.pageDetail(-1)
+			}
+		case "right":
+			if m.detailOpen {
+				m.pageDetail(1)
+			}
 		case "up":
 			if m.detailOpen {
 				m.detailView.ScrollUp(1)
@@ -337,10 +345,7 @@ func (m *Model) syncDetailView() {
 		return
 	}
 	layout := entryDetailLayout(m.width, m.height, newStyles(m.mono))
-	m.detailView.SetWidth(layout.innerWidth)
-	m.detailView.SetHeight(layout.bodyHeight)
-	m.detailView.FillHeight = true
-	m.detailView.SetContent(renderEntryContent(entry, layout.innerWidth, m.mono, newStyles(m.mono)))
+	configureDetailView(&m.detailView, entry, layout, m.mono, newStyles(m.mono))
 }
 
 func (m *Model) syncFeedOffset() {
@@ -383,6 +388,18 @@ func (m *Model) selectDetail(index int) {
 	m.syncFeedOffset()
 	m.syncView()
 	m.view.GotoBottom()
+}
+
+func (m *Model) pageDetail(delta int) {
+	index := m.detailIndex + delta
+	if !m.detailOpen || index < 0 || index >= len(m.data.RecentFeed) {
+		return
+	}
+	m.detailIndex = index
+	m.detailID = m.data.RecentFeed[index].ID
+	m.detailView.GotoTop()
+	m.syncFeedOffset()
+	m.syncView()
 }
 
 func (m *Model) closeDetail() {
