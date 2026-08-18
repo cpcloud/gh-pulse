@@ -550,6 +550,21 @@ func TestRenderEntryDetailFitsSupportedLayoutsAndMonochrome(t *testing.T) {
 	}
 }
 
+func TestRenderEntryDetailKeepsWrappedLinkedTitleVisible(t *testing.T) {
+	t.Parallel()
+	target := "https://www.githubstatus.com/incidents/example"
+	entry := pulse.FeedEntry{
+		Title:       "Intermittent failures in runner group and runner-related permissions pages FINAL MARKER",
+		ContentHTML: "<p>Short update</p>",
+		URL:         &target,
+		UpdatedAt:   time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC),
+	}
+
+	output := ansi.Strip(renderEntryDetail(entry, 0, 1, detailRenderOptions{width: 80, height: 24, mono: true}))
+
+	assert.Contains(t, output, "FINAL MARKER")
+}
+
 func TestModelKeepsLandingAndDetailViewerAtSameVerticalBounds(t *testing.T) {
 	t.Parallel()
 

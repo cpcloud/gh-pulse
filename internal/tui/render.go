@@ -238,7 +238,14 @@ func feedEntryLimit(terminalWidth, terminalHeight, panelWidth int, fixedSections
 }
 
 func terminalLink(label, target string) string {
-	label = stripUnsafeTerminalLine(label)
+	return renderTerminalLink(stripUnsafeTerminalLine(label), target)
+}
+
+func terminalMultilineLink(label, target string) string {
+	return renderTerminalLink(stripUnsafeTerminalText(label), target)
+}
+
+func renderTerminalLink(label, target string) string {
 	if !safeHyperlinkTarget(target) {
 		return label
 	}
