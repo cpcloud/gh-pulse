@@ -300,47 +300,43 @@ func TestModelDashboardSelectionScrollsPastVisibleRows(t *testing.T) {
 func TestModelStatusHistoryWindowFollowsSelection(t *testing.T) {
 	t.Parallel()
 	model := detailModel(t, 120, 40)
-	model.data.RecentFeed = append(model.data.RecentFeed,
-		pulse.FeedEntry{ID: "fourth", Title: "Fourth incident title", UpdatedAt: model.data.GeneratedAt.Add(-3 * time.Minute)},
-		pulse.FeedEntry{ID: "fifth", Title: "Fifth incident title", UpdatedAt: model.data.GeneratedAt.Add(-4 * time.Minute)},
-		pulse.FeedEntry{ID: "sixth", Title: "Sixth incident title", UpdatedAt: model.data.GeneratedAt.Add(-5 * time.Minute)},
-		pulse.FeedEntry{ID: "seventh", Title: "Seventh incident title", UpdatedAt: model.data.GeneratedAt.Add(-6 * time.Minute)},
-	)
+	for index := 3; index < 20; index++ {
+		model.data.RecentFeed = append(model.data.RecentFeed, pulse.FeedEntry{
+			ID: fmt.Sprintf("entry-%d", index), Title: fmt.Sprintf("Incident %d", index),
+			UpdatedAt: model.data.GeneratedAt.Add(-time.Duration(index) * time.Minute),
+		})
+	}
 	model.syncView()
 
-	for range 5 {
+	for range 15 {
 		updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 		model = updated.(*Model)
 	}
 
-	assert.Equal(t, "sixth", model.detailID)
-	assert.Equal(t, 5, model.detailIndex)
+	assert.Equal(t, "entry-15", model.detailID)
+	assert.Equal(t, 15, model.detailIndex)
 	plain := ansi.Strip(model.View().Content)
 	assert.NotContains(t, plain, "First incident title in full")
-	assert.Contains(t, plain, "Second incident title in full")
-	assert.Contains(t, plain, "Third incident title in full")
-	assert.Contains(t, plain, "Fourth incident title")
-	assert.Contains(t, plain, "Fifth incident title")
-	assert.Contains(t, plain, "Sixth incident title")
-	assert.NotContains(t, plain, "Seventh incident title")
+	assert.Contains(t, plain, "Incident 15")
+	assert.NotContains(t, plain, "Incident 19")
 }
 
 func TestModelShowsLandingHistoryScrollbarOnlyWhenEntriesOverflow(t *testing.T) {
 	t.Parallel()
 	overflowing := detailModel(t, 120, 40)
-	overflowing.data.RecentFeed = append(overflowing.data.RecentFeed,
-		pulse.FeedEntry{ID: "fourth", Title: "Fourth incident", UpdatedAt: overflowing.data.GeneratedAt.Add(-3 * time.Minute)},
-		pulse.FeedEntry{ID: "fifth", Title: "Fifth incident", UpdatedAt: overflowing.data.GeneratedAt.Add(-4 * time.Minute)},
-		pulse.FeedEntry{ID: "sixth", Title: "Sixth incident", UpdatedAt: overflowing.data.GeneratedAt.Add(-5 * time.Minute)},
-		pulse.FeedEntry{ID: "seventh", Title: "Seventh incident", UpdatedAt: overflowing.data.GeneratedAt.Add(-6 * time.Minute)},
-	)
+	for index := 3; index < 20; index++ {
+		overflowing.data.RecentFeed = append(overflowing.data.RecentFeed, pulse.FeedEntry{
+			ID: fmt.Sprintf("entry-%d", index), Title: fmt.Sprintf("Incident %d", index),
+			UpdatedAt: overflowing.data.GeneratedAt.Add(-time.Duration(index) * time.Minute),
+		})
+	}
 	overflowing.syncView()
 	lines := strings.Split(ansi.Strip(overflowing.View().Content), "\n")
 	topRow := lineIndexContaining(lines, "┃")
 	require.GreaterOrEqual(t, topRow, 0)
 	assert.Contains(t, lines[topRow], "┃ │")
 
-	for range 5 {
+	for range 15 {
 		updated, _ := overflowing.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 		overflowing = updated.(*Model)
 	}
@@ -551,6 +547,48 @@ func TestRenderEntryDetailFitsSupportedLayoutsAndMonochrome(t *testing.T) {
 		assert.Equal(t, size.overlayHeight, lipgloss.Height(shortOutput))
 		assert.Equal(t, lipgloss.Width(shortOutput), lipgloss.Width(longOutput))
 		assert.Equal(t, lipgloss.Height(shortOutput), lipgloss.Height(longOutput))
+	}
+}
+
+func TestModelKeepsLandingAndDetailViewerAtSameVerticalBounds(t *testing.T) {
+	t.Parallel()
+
+	for _, size := range []struct{ width, height int }{
+		{80, 24},
+		{120, 40},
+		{200, 50},
+	} {
+		model := detailModel(t, size.width, size.height)
+		for index := 3; index < 20; index++ {
+			model.data.RecentFeed = append(model.data.RecentFeed, pulse.FeedEntry{
+				ID: fmt.Sprintf("entry-%d", index), Title: fmt.Sprintf("Incident %d", index),
+				UpdatedAt: model.data.GeneratedAt.Add(-time.Duration(index) * time.Minute),
+			})
+		}
+		model.syncView()
+
+		verticalBounds := func(content string) (int, int) {
+			t.Helper()
+			first, last := -1, -1
+			for row, line := range strings.Split(ansi.Strip(content), "\n") {
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
+				if first == -1 {
+					first = row
+				}
+				last = row
+			}
+			return first, last
+		}
+
+		landingTop, landingBottom := verticalBounds(model.View().Content)
+		updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+		model = updated.(*Model)
+		viewerTop, viewerBottom := verticalBounds(model.View().Content)
+
+		assert.Equal(t, viewerTop, landingTop, "width %d", size.width)
+		assert.Equal(t, viewerBottom, landingBottom, "width %d", size.width)
 	}
 }
 

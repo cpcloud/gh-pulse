@@ -496,7 +496,7 @@ func TestRenderAggregateKeepsWorstCaseCompactHeaderComplete(t *testing.T) {
 	assert.NotContains(t, header, "…")
 }
 
-func TestRenderFeedDensityFollowsAvailableTerminalHeight(t *testing.T) {
+func TestRenderFeedHonorsRowCapacity(t *testing.T) {
 	t.Parallel()
 	value := fixtureSnapshot(t)
 	value.RecentFeed = []pulse.FeedEntry{
@@ -507,8 +507,8 @@ func TestRenderFeedDensityFollowsAvailableTerminalHeight(t *testing.T) {
 		{Title: "Fifth incident", UpdatedAt: value.GeneratedAt},
 		{Title: "Sixth incident", UpdatedAt: value.GeneratedAt},
 	}
-	short := ansi.Strip(renderFeed(value, 140, 24, 0, 0, newStyles(true)))
-	tall := ansi.Strip(renderFeed(value, 116, 40, 0, 0, newStyles(true)))
+	short := ansi.Strip(renderFeed(value, 140, 1, 0, 0, newStyles(true)))
+	tall := ansi.Strip(renderFeed(value, 116, 5, 0, 0, newStyles(true)))
 	assert.Contains(t, short, "First incident")
 	assert.NotContains(t, short, "Second incident")
 	for _, title := range []string{"First incident", "Second incident", "Third incident", "Fourth incident", "Fifth incident"} {
@@ -526,7 +526,7 @@ func TestRenderFeedReadsAsDatedHistory(t *testing.T) {
 	)
 	s := newStyles(true)
 	s.location = time.FixedZone("LOCAL", -4*60*60)
-	plain := ansi.Strip(renderFeed(data, 116, 40, 0, 0, s))
+	plain := ansi.Strip(renderFeed(data, 116, len(data.RecentFeed), 0, 0, s))
 	assert.Contains(t, plain, "STATUS HISTORY")
 	assert.Contains(t, plain, "2026-08-09 10:00 LOCAL")
 	assert.NotContains(t, plain, "●")
@@ -538,7 +538,7 @@ func TestRenderFeedLinksIncidentTitlesWhenDetailsURLExists(t *testing.T) {
 	target := "https://www.githubstatus.com/incidents/example"
 	data.RecentFeed[0].URL = &target
 
-	output := renderFeed(data, 116, 40, 0, 0, newStyles(true))
+	output := renderFeed(data, 116, len(data.RecentFeed), 0, 0, newStyles(true))
 
 	assert.Contains(t, output, ansi.SetHyperlink(target))
 	assert.Contains(t, output, "Incident with API Requests")
@@ -560,7 +560,7 @@ func TestRenderFeedStripsControlsFromUnlinkedTitles(t *testing.T) {
 	data := fixtureSnapshot(t)
 	data.RecentFeed[0].Title = "incident\u009cspoof\u202e"
 
-	output := renderFeed(data, 116, 40, 0, 0, newStyles(true))
+	output := renderFeed(data, 116, len(data.RecentFeed), 0, 0, newStyles(true))
 
 	assert.Contains(t, output, "incidentspoof")
 	assert.NotContains(t, output, "\u009c")
@@ -664,7 +664,7 @@ func TestRenderUsesComputerTimezoneForTimestamps(t *testing.T) {
 	s.location = time.FixedZone("LOCAL", -4*60*60)
 
 	assert.Contains(t, ansi.Strip(renderAggregate(data, 116, s, 42*time.Second)), "UPDATED 10:00 LOCAL")
-	assert.Contains(t, ansi.Strip(renderFeed(data, 116, 40, 0, 0, s)), "2026-08-09 10:00 LOCAL")
+	assert.Contains(t, ansi.Strip(renderFeed(data, 116, len(data.RecentFeed), 0, 0, s)), "2026-08-09 10:00 LOCAL")
 }
 
 func TestRenderAggregateShowsRefreshCountdown(t *testing.T) {

@@ -350,8 +350,16 @@ func (m *Model) syncDetailView() {
 
 func (m *Model) syncFeedOffset() {
 	width := min(max(m.width-4, 36), 140)
-	innerWidth := panelContentWidth(newStyles(m.mono), width)
-	limit := feedEntryLimit(innerWidth, m.height)
+	s := newStyles(m.mono)
+	now := m.now()
+	landing := renderLandingSections(
+		m.data, width, max(time.Duration(0), m.nextRefresh.Sub(now)), now, false, s,
+	)
+	fixedSections := make([]string, 0, len(landing.beforeFeed)+len(landing.afterFeed)+1)
+	fixedSections = append(fixedSections, landing.beforeFeed...)
+	fixedSections = append(fixedSections, landing.afterFeed...)
+	fixedSections = append(fixedSections, landing.footer)
+	limit := feedEntryLimit(m.width, m.height, width, fixedSections, s)
 	m.feedOffset, _ = feedWindow(len(m.data.RecentFeed), m.detailIndex, m.feedOffset, limit)
 }
 

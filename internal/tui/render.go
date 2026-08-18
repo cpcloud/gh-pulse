@@ -27,26 +27,50 @@ type renderOptions struct {
 	detailOpen    bool
 }
 
+type landingSections struct {
+	beforeFeed, afterFeed []string
+	footer                string
+}
+
 var osc8SequencePattern = regexp.MustCompile(`\x1b\]8;[^;\x07]*;[^\x07]*\x07`)
 
 func render(data pulse.Snapshot, options renderOptions) string {
 	width := min(max(options.width-4, 36), 140)
 	s := newStyles(options.mono)
-	sections := []string{
-		renderAggregate(data, width, s, options.countdown),
-	}
-	if context := renderContext(data, width, options.now, s); context != "" {
-		sections = append(sections, context)
-	}
-	sections = append(sections, renderComponents(data.Components, data.History.Components, width, s), renderFeed(data, width, options.height, options.selectedFeed, options.feedOffset, s))
-	if issues := renderSourceIssues(data.Errors, width, s); issues != "" {
-		sections = append(sections, issues)
-	}
+	landing := renderLandingSections(data, width, options.countdown, options.now, options.scrollable, s)
+	fixedSections := make([]string, 0, len(landing.beforeFeed)+len(landing.afterFeed)+1)
+	fixedSections = append(fixedSections, landing.beforeFeed...)
+	fixedSections = append(fixedSections, landing.afterFeed...)
+	fixedSections = append(fixedSections, landing.footer)
+	limit := feedEntryLimit(options.width, options.height, width, fixedSections, s)
+	sections := append(landing.beforeFeed, renderFeed(data, width, limit, options.selectedFeed, options.feedOffset, s))
+	sections = append(sections, landing.afterFeed...)
 	if !options.detailOpen {
-		canViewDetails := data.Sources.Feed.Available && len(data.RecentFeed) > 0
-		sections = append(sections, renderFooter(width, s, options.scrollable, canViewDetails))
+		sections = append(sections, landing.footer)
 	}
 	return lipgloss.PlaceHorizontal(options.width, lipgloss.Center, strings.Join(sections, "\n"))
+}
+
+func renderLandingSections(
+	data pulse.Snapshot, width int, countdown time.Duration, now time.Time, scrollable bool, s styles,
+) landingSections {
+	beforeFeed := []string{
+		renderAggregate(data, width, s, countdown),
+	}
+	if context := renderContext(data, width, now, s); context != "" {
+		beforeFeed = append(beforeFeed, context)
+	}
+	beforeFeed = append(beforeFeed, renderComponents(data.Components, data.History.Components, width, s))
+	afterFeed := make([]string, 0, 1)
+	if issues := renderSourceIssues(data.Errors, width, s); issues != "" {
+		afterFeed = append(afterFeed, issues)
+	}
+	canViewDetails := data.Sources.Feed.Available && len(data.RecentFeed) > 0
+	return landingSections{
+		beforeFeed: beforeFeed,
+		afterFeed:  afterFeed,
+		footer:     renderFooter(width, s, scrollable, canViewDetails),
+	}
 }
 
 func renderContext(data pulse.Snapshot, width int, now time.Time, s styles) string {
@@ -115,13 +139,12 @@ func maintenanceBounds(value pulse.MaintenanceWindow, s styles) string {
 	}
 }
 
-func renderFeed(data pulse.Snapshot, width, terminalHeight, selected, offset int, s styles) string {
+func renderFeed(data pulse.Snapshot, width, limit, selected, offset int, s styles) string {
 	innerWidth := panelContentWidth(s, width)
 	header := s.title.Render("STATUS HISTORY")
 	if !data.Sources.Feed.Available {
 		return s.panel(width).Render(header + "\n\n" + s.muted.Render("Feed unavailable"))
 	}
-	limit := feedEntryLimit(innerWidth, terminalHeight)
 	start, end := feedWindow(len(data.RecentFeed), selected, offset, limit)
 	if start == end {
 		return s.panel(width).Render(header + "\n\n" + s.muted.Render("No recent entries"))
@@ -145,6 +168,9 @@ func renderFeed(data pulse.Snapshot, width, terminalHeight, selected, offset int
 			line = s.selected.Render("› " + stampText + "  " + title)
 		}
 		lines = append(lines, lipgloss.NewStyle().Width(contentWidth).Render(line))
+	}
+	for len(lines) < limit {
+		lines = append(lines, strings.Repeat(" ", contentWidth))
 	}
 	history := strings.Join(lines, "\n")
 	if scrollable {
@@ -198,11 +224,17 @@ func fitTableCell(value string, width int) string {
 	return value + strings.Repeat(" ", max(0, width-ansi.StringWidth(value)))
 }
 
-func feedEntryLimit(innerWidth, terminalHeight int) int {
-	if innerWidth < 96 || terminalHeight < 32 {
-		return 1
+func feedEntryLimit(terminalWidth, terminalHeight, panelWidth int, fixedSections []string, s styles) int {
+	targetHeight := entryDetailLayout(terminalWidth, terminalHeight, s).height
+	targetHeight += lipgloss.Height(renderFooter(panelWidth, s, false, false))
+
+	fixedHeight := 0
+	for _, section := range fixedSections {
+		fixedHeight += lipgloss.Height(section)
 	}
-	return 5
+	rowProbe := s.panel(panelWidth).Render(s.title.Render("STATUS HISTORY") + "\n\n" + "x")
+	feedChromeHeight := lipgloss.Height(rowProbe) - 1
+	return max(1, targetHeight-fixedHeight-feedChromeHeight)
 }
 
 func terminalLink(label, target string) string {
