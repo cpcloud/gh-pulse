@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
 # GitHub Pulse
 <!-- markdownlint-enable MD033 MD041 -->
 
-![GitHub Pulse dashboard](images/gh-pulse.png)
+![GitHub Pulse dashboard with selectable status history](images/gh-pulse.png)
 
 GitHub Pulse is a fast, terminal-native view of GitHub service health. It shows
 GitHub's official current status separately from uptime reconstructed from
@@ -27,7 +27,7 @@ scripts and agents.
 - Current GitHub platform and component health from GitHub Status.
 - A compact 90-day daily-state strip and per-component 30-day history.
 - Reconstructed 90-day uptime, equivalent downtime, and rolling history.
-- Recent official status updates with clickable incident links.
+- Selectable official status history with scrollable full incident details.
 - Responsive color, monochrome, narrow-terminal, and scrollable layouts.
 - One-shot JSON with deterministic ordering and no terminal formatting.
 
