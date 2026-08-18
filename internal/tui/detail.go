@@ -119,6 +119,10 @@ func entryParagraphs(document *html.Node) ([]string, bool) {
 }
 
 func collectEntryText(node *html.Node, text *strings.Builder) {
+	if node.Type == html.ElementNode && node.Data == "br" {
+		text.WriteByte(' ')
+		return
+	}
 	if node.Type == html.TextNode {
 		text.WriteString(node.Data)
 	}
@@ -147,6 +151,10 @@ func localizeParagraphTimestamps(paragraph *html.Node, reference time.Time, loca
 	var segments []entryTextSegment
 	var collect func(*html.Node)
 	collect = func(node *html.Node) {
+		if node.Type == html.ElementNode && node.Data == "br" {
+			text.WriteByte(' ')
+			return
+		}
 		if node.Type == html.TextNode {
 			start := text.Len()
 			text.WriteString(node.Data)

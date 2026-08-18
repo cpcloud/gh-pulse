@@ -92,13 +92,13 @@ func TestRenderEntryBodyUsesTerminalHeadingStyleInMonochrome(t *testing.T) {
 	assert.Contains(t, body, "\x1b[1m")
 }
 
-func TestRenderEntryContentLocalizesSplitUTCTimestampsWithoutCodeStyling(t *testing.T) {
+func TestRenderEntryContentHandlesOfficialStatusPageMarkup(t *testing.T) {
 	t.Parallel()
 	styles := newStyles(false)
 	styles.location = time.FixedZone("EDT", -4*60*60)
 	entry := pulse.FeedEntry{
 		Title:       "Incident with Actions",
-		ContentHTML: `<p>Aug <var>18</var>, <var>10:23</var> UTC <strong>Resolved</strong> - Workflows were not impacted.</p>`,
+		ContentHTML: `<p><small>Aug <var data-var="date">18</var>, <var data-var="time">10:23</var> UTC</small><br><strong>Resolved</strong> - Workflows were not impacted.</p>`,
 		UpdatedAt:   time.Date(2026, 8, 18, 10, 30, 0, 0, time.UTC),
 	}
 
@@ -109,6 +109,9 @@ func TestRenderEntryContentLocalizesSplitUTCTimestampsWithoutCodeStyling(t *test
 	assert.NotContains(t, plain, "\u00a0")
 	assert.NotContains(t, plain, "``")
 	assert.Contains(t, plain, "Resolved")
+	assert.Contains(t, plain, "WHEN")
+	assert.Contains(t, plain, "STATUS")
+	assert.Contains(t, plain, "DETAILS")
 }
 
 func TestRenderEntryContentUsesReadableUpdateTable(t *testing.T) {
