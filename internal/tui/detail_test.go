@@ -147,6 +147,38 @@ func TestRenderEntryContentUsesReadableUpdateTable(t *testing.T) {
 	assert.Equal(t, strings.Index(headerRow, "DETAILS"), strings.Index(investigatingRow, "Engineers"))
 }
 
+func TestRenderEntryUpdateTableKeepsColumnsStableAcrossDayWidths(t *testing.T) {
+	t.Parallel()
+	styles := newStyles(true)
+	styles.location = time.FixedZone("EDT", -4*60*60)
+	entries := []pulse.FeedEntry{
+		{
+			ContentHTML: `<p>Aug 5, 13:00 UTC <strong>Resolved</strong> - Single digit day.</p>`,
+			UpdatedAt:   time.Date(2026, 8, 5, 14, 0, 0, 0, time.UTC),
+		},
+		{
+			ContentHTML: `<p>Jul 30, 13:00 UTC <strong>Resolved</strong> - Double digit day.</p>`,
+			UpdatedAt:   time.Date(2026, 7, 30, 14, 0, 0, 0, time.UTC),
+		},
+	}
+
+	rows := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		for _, line := range strings.Split(ansi.Strip(renderEntryContent(entry, 116, true, styles)), "\n") {
+			if strings.Contains(line, "Resolved") {
+				rows = append(rows, line)
+				break
+			}
+		}
+	}
+
+	require.Len(t, rows, 2)
+	assert.Contains(t, rows[0], "Aug 05")
+	assert.Contains(t, rows[1], "Jul 30")
+	assert.Equal(t, strings.Index(rows[0], "Resolved"), strings.Index(rows[1], "Resolved"))
+	assert.Equal(t, strings.Index(rows[0], "Single digit day."), strings.Index(rows[1], "Double digit day."))
+}
+
 func TestRenderEntryUpdateTableUsesStatusPageLifecycleColors(t *testing.T) {
 	t.Parallel()
 	styles := newStyles(false)
@@ -271,22 +303,26 @@ func TestModelStatusHistoryWindowFollowsSelection(t *testing.T) {
 	model.data.RecentFeed = append(model.data.RecentFeed,
 		pulse.FeedEntry{ID: "fourth", Title: "Fourth incident title", UpdatedAt: model.data.GeneratedAt.Add(-3 * time.Minute)},
 		pulse.FeedEntry{ID: "fifth", Title: "Fifth incident title", UpdatedAt: model.data.GeneratedAt.Add(-4 * time.Minute)},
+		pulse.FeedEntry{ID: "sixth", Title: "Sixth incident title", UpdatedAt: model.data.GeneratedAt.Add(-5 * time.Minute)},
+		pulse.FeedEntry{ID: "seventh", Title: "Seventh incident title", UpdatedAt: model.data.GeneratedAt.Add(-6 * time.Minute)},
 	)
 	model.syncView()
 
-	for range 3 {
+	for range 5 {
 		updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 		model = updated.(*Model)
 	}
 
-	assert.Equal(t, "fourth", model.detailID)
-	assert.Equal(t, 3, model.detailIndex)
+	assert.Equal(t, "sixth", model.detailID)
+	assert.Equal(t, 5, model.detailIndex)
 	plain := ansi.Strip(model.View().Content)
 	assert.NotContains(t, plain, "First incident title in full")
 	assert.Contains(t, plain, "Second incident title in full")
 	assert.Contains(t, plain, "Third incident title in full")
 	assert.Contains(t, plain, "Fourth incident title")
-	assert.NotContains(t, plain, "Fifth incident title")
+	assert.Contains(t, plain, "Fifth incident title")
+	assert.Contains(t, plain, "Sixth incident title")
+	assert.NotContains(t, plain, "Seventh incident title")
 }
 
 func TestModelShowsLandingHistoryScrollbarOnlyWhenEntriesOverflow(t *testing.T) {
@@ -295,6 +331,8 @@ func TestModelShowsLandingHistoryScrollbarOnlyWhenEntriesOverflow(t *testing.T) 
 	overflowing.data.RecentFeed = append(overflowing.data.RecentFeed,
 		pulse.FeedEntry{ID: "fourth", Title: "Fourth incident", UpdatedAt: overflowing.data.GeneratedAt.Add(-3 * time.Minute)},
 		pulse.FeedEntry{ID: "fifth", Title: "Fifth incident", UpdatedAt: overflowing.data.GeneratedAt.Add(-4 * time.Minute)},
+		pulse.FeedEntry{ID: "sixth", Title: "Sixth incident", UpdatedAt: overflowing.data.GeneratedAt.Add(-5 * time.Minute)},
+		pulse.FeedEntry{ID: "seventh", Title: "Seventh incident", UpdatedAt: overflowing.data.GeneratedAt.Add(-6 * time.Minute)},
 	)
 	overflowing.syncView()
 	lines := strings.Split(ansi.Strip(overflowing.View().Content), "\n")
@@ -302,7 +340,7 @@ func TestModelShowsLandingHistoryScrollbarOnlyWhenEntriesOverflow(t *testing.T) 
 	require.GreaterOrEqual(t, topRow, 0)
 	assert.Contains(t, lines[topRow], "┃ │")
 
-	for range 3 {
+	for range 5 {
 		updated, _ := overflowing.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 		overflowing = updated.(*Model)
 	}

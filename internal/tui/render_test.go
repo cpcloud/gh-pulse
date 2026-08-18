@@ -503,14 +503,18 @@ func TestRenderFeedDensityFollowsAvailableTerminalHeight(t *testing.T) {
 		{Title: "First incident", UpdatedAt: value.GeneratedAt},
 		{Title: "Second incident", UpdatedAt: value.GeneratedAt},
 		{Title: "Third incident", UpdatedAt: value.GeneratedAt},
+		{Title: "Fourth incident", UpdatedAt: value.GeneratedAt},
+		{Title: "Fifth incident", UpdatedAt: value.GeneratedAt},
+		{Title: "Sixth incident", UpdatedAt: value.GeneratedAt},
 	}
 	short := ansi.Strip(renderFeed(value, 140, 24, 0, 0, newStyles(true)))
 	tall := ansi.Strip(renderFeed(value, 116, 40, 0, 0, newStyles(true)))
 	assert.Contains(t, short, "First incident")
 	assert.NotContains(t, short, "Second incident")
-	assert.Contains(t, tall, "First incident")
-	assert.Contains(t, tall, "Second incident")
-	assert.Contains(t, tall, "Third incident")
+	for _, title := range []string{"First incident", "Second incident", "Third incident", "Fourth incident", "Fifth incident"} {
+		assert.Contains(t, tall, title)
+	}
+	assert.NotContains(t, tall, "Sixth incident")
 }
 
 func TestRenderFeedReadsAsDatedHistory(t *testing.T) {

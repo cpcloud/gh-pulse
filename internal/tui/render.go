@@ -202,7 +202,7 @@ func feedEntryLimit(innerWidth, terminalHeight int) int {
 	if innerWidth < 96 || terminalHeight < 32 {
 		return 1
 	}
-	return 3
+	return 5
 }
 
 func terminalLink(label, target string) string {

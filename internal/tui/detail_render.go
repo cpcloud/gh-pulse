@@ -138,10 +138,12 @@ func renderEntryBody(contentHTML string, reference time.Time, width int, mono bo
 }
 
 func renderEntryUpdateTable(updates []entryUpdate, width int, s styles) (string, bool) {
+	const timestampLayout = "Jan 02, 15:04 MST"
+
 	whenWidth := ansi.StringWidth("WHEN")
 	statusWidth := ansi.StringWidth("STATUS")
 	for _, update := range updates {
-		whenWidth = max(whenWidth, ansi.StringWidth(s.timestamp(update.when, "Jan 2, 15:04 MST")))
+		whenWidth = max(whenWidth, ansi.StringWidth(s.timestamp(update.when, timestampLayout)))
 		statusWidth = max(statusWidth, ansi.StringWidth(update.status))
 	}
 	statusWidth = min(statusWidth, 16)
@@ -162,7 +164,7 @@ func renderEntryUpdateTable(updates []entryUpdate, width int, s styles) (string,
 		for lineIndex, detailLine := range detailLines {
 			when, status := "", ""
 			if lineIndex == 0 {
-				when = s.muted.Render(fitTableCell(s.timestamp(update.when, "Jan 2, 15:04 MST"), whenWidth))
+				when = s.muted.Render(fitTableCell(s.timestamp(update.when, timestampLayout), whenWidth))
 				status = entryStatusStyle(update.status, s).Render(fitTableCell(update.status, statusWidth))
 			} else {
 				when = strings.Repeat(" ", whenWidth)
