@@ -532,6 +532,24 @@ func TestRenderFeedReadsAsDatedHistory(t *testing.T) {
 	assert.NotContains(t, plain, "●")
 }
 
+func TestRenderFeedUsesPublishedTime(t *testing.T) {
+	t.Parallel()
+	data := fixtureSnapshot(t)
+	published := time.Date(2026, 8, 27, 0, 26, 44, 0, time.UTC)
+	data.RecentFeed = []pulse.FeedEntry{{
+		Title:       "Incident with Actions and Pull Requests",
+		PublishedAt: &published,
+		UpdatedAt:   time.Date(2026, 8, 28, 22, 10, 28, 0, time.UTC),
+	}}
+	s := newStyles(true)
+	s.location = time.FixedZone("EDT", -4*60*60)
+
+	plain := ansi.Strip(renderFeed(data, 116, 1, 0, 0, s))
+
+	assert.Contains(t, plain, "2026-08-26 20:26 EDT")
+	assert.NotContains(t, plain, "2026-08-28")
+}
+
 func TestRenderFeedLinksIncidentTitlesWhenDetailsURLExists(t *testing.T) {
 	t.Parallel()
 	data := fixtureSnapshot(t)

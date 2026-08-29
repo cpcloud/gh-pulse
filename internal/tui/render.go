@@ -157,7 +157,7 @@ func renderFeed(data pulse.Snapshot, width, limit, selected, offset int, s style
 	}
 	lines := make([]string, 0, end-start)
 	for index, entry := range data.RecentFeed[start:end] {
-		stampText := s.timestamp(entry.UpdatedAt, "2006-01-02 15:04 MST")
+		stampText := s.timestamp(entryHeaderTime(entry), "2006-01-02 15:04 MST")
 		stamp := s.muted.Render(stampText)
 		title := truncate(stripUnsafeTerminalLine(entry.Title), max(1, contentWidth-ansi.StringWidth(stampText)-4))
 		if entry.URL != nil {
