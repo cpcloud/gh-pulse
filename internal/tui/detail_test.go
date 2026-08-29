@@ -114,6 +114,48 @@ func TestRenderEntryContentHandlesOfficialStatusPageMarkup(t *testing.T) {
 	assert.Contains(t, plain, "DETAILS")
 }
 
+func TestRenderEntryContentHeaderUsesPublishedTime(t *testing.T) {
+	t.Parallel()
+	styles := newStyles(true)
+	styles.location = time.FixedZone("EDT", -4*60*60)
+	published := time.Date(2026, 8, 27, 0, 26, 44, 0, time.UTC)
+	cases := []struct {
+		name  string
+		entry pulse.FeedEntry
+		want  string
+	}{
+		{
+			name: "published over later editorial updated",
+			entry: pulse.FeedEntry{
+				Title: "Incident with Actions and Pull Requests",
+				ContentHTML: `<p>Aug 27, 00:26 UTC <strong>Resolved</strong> - Recovered after delays.</p>` +
+					`<p>Aug 26, 22:56 UTC <strong>Investigating</strong> - Investigating delays.</p>`,
+				PublishedAt: &published,
+				UpdatedAt:   time.Date(2026, 8, 28, 22, 10, 28, 0, time.UTC),
+			},
+			want: "2026-08-26 20:26 EDT",
+		},
+		{
+			name: "updated when unpublished",
+			entry: pulse.FeedEntry{
+				Title:       "Incident with Actions",
+				ContentHTML: `<p>Aug 18, 10:23 UTC <strong>Resolved</strong> - Recovered.</p>`,
+				UpdatedAt:   time.Date(2026, 8, 18, 10, 30, 0, 0, time.UTC),
+			},
+			want: "2026-08-18 06:30 EDT",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			plain := ansi.Strip(renderEntryContent(tc.entry, 116, true, styles))
+			header := strings.TrimSpace(strings.SplitN(plain, "\n", 2)[0])
+			assert.Equal(t, tc.want, header)
+		})
+	}
+}
+
 func TestRenderEntryContentUsesReadableUpdateTable(t *testing.T) {
 	t.Parallel()
 	styles := newStyles(true)

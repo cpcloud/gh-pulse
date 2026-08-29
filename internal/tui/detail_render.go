@@ -81,13 +81,20 @@ func entryDetailLayout(terminalWidth, terminalHeight int, s styles) detailLayout
 }
 
 func renderEntryContent(entry pulse.FeedEntry, width int, mono bool, s styles) string {
-	stamp := s.muted.Render(s.timestamp(entry.UpdatedAt, "2006-01-02 15:04 MST"))
+	stamp := s.muted.Render(s.timestamp(entryHeaderTime(entry), "2006-01-02 15:04 MST"))
 	title := ansi.Wrap(stripUnsafeTerminalLine(entry.Title), width, " ")
 	if entry.URL != nil {
 		title = terminalMultilineLink(title, *entry.URL)
 	}
 	body := renderEntryBody(entry.ContentHTML, entry.UpdatedAt, width, mono, s)
 	return strings.Join([]string{stamp, title, "", body}, "\n")
+}
+
+func entryHeaderTime(entry pulse.FeedEntry) time.Time {
+	if entry.PublishedAt != nil && !entry.PublishedAt.IsZero() {
+		return *entry.PublishedAt
+	}
+	return entry.UpdatedAt
 }
 
 func renderEntryBody(contentHTML string, reference time.Time, width int, mono bool, s styles) string {
